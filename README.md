@@ -1,5 +1,6 @@
-# MaxProfitFeeding
-Diet optimization model for beef cattle based on "Nutritional Requirements for Beef Cattle" 8th Ed. (NASEM, 2016).
+# GreenFeeding
+Diet optimization model for beef cattle based on "Nutritional Requirements for Beef Cattle" 8th Ed. (NASEM, 2016) and [Maximum Profit Model](https://github.com/BlackNellore/MaxProfitFeeding).
+This model uses the ε-constrained method to generate short-term optimal diet balancing profit vs. GHG emissions.
 
 NASEM - National Academies of Sciences, Engineering, and Medicine 2016. Nutrient Requirements of Beef Cattle, 8th Revised Edition. National Academies Press, Washington, D.C.
 
