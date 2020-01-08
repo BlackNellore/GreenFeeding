@@ -13,7 +13,9 @@ OUTPUT = None
  available_feed,
  h_available_feed,
  scenarios,
- h_scenarios] = [None for i in range(7)]
+ h_scenarios,
+ lca,
+ lca_scenarios] = [None for i in range(7)]
 
 
 def run():

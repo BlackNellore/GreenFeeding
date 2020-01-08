@@ -57,7 +57,7 @@ class Data:
         s_lb: str
         s_ub: str
         s_tol: str
-        s_lca: str
+        s_lca_id: str
 
     # Sheet Feeds
     class ScenarioFeedProperties(NamedTuple):
@@ -67,7 +67,7 @@ class Data:
         s_feed_cost: str
         s_name: str
 
-    # Sheet FeedLibrary
+    # Sheet Feed Library
     class IngredientProperties(NamedTuple):
         s_ID: str
         s_FEED: str
@@ -128,6 +128,24 @@ class Data:
         s_Vit_D: str
         s_Vit_E: str
 
+    # Sheet LCA
+    class LCALib(NamedTuple):
+        s_ing_id: str
+        s_name: str
+        s_lca_ghg: str
+
+    # Sheet LCA Library
+    class LCAScenario(NamedTuple):
+        s_ID: str
+        s_LCA_cost: str
+        s_Epislon: str
+        s_LCA_weight: str
+        s_LCA_GHG: str
+        s_LCA_GHG_weight: str
+        s_Methane: str
+        s_Methane_Equation: str
+
+
     @staticmethod
     def filter_column(data_frame, col_name, val):
         """ Filter elements in data_frame where col_name == val or in [val]"""
@@ -166,24 +184,28 @@ class Data:
 
     def __init__(self,
                  filename,
-                 sheet_feed,
+                 sheet_feed_lib,
                  sheet_scenario,
-                 sheet_cattle):
+                 sheet_cattle,
+                 sheet_lca_scenario,
+                 sheet_lca_library):
         """
         Read excel file
         I know, I know, shouldn't be hardcoded, one day I will fix that
         """
         excel_file = pandas.ExcelFile(filename)
 
-        data_feed = pandas.read_excel(excel_file, sheet_feed)
-        self.headers_data_feed = self.IngredientProperties(*(list(data_feed)))
+        # Feed Library Sheet
+        data_feed_lib = pandas.read_excel(excel_file, sheet_feed_lib)
+        self.headers_data_feed = self.IngredientProperties(*(list(data_feed_lib)))
 
         self.data_available_feed = pandas.read_excel(excel_file, sheet_scenario)
         self.headers_available_feed = self.ScenarioFeedProperties(*(list(self.data_available_feed)))
 
+        # Feeds Sheet
         filter_ingredients_ids = \
             self.data_available_feed.filter(items=[self.headers_available_feed.s_ID]).values
-        self.data_feed_scenario = self.filter_column(data_feed,
+        self.data_feed_scenario = self.filter_column(data_feed_lib,
                                                      self.headers_data_feed.s_ID,
                                                      unwrap_list(filter_ingredients_ids))
         if len(self.data_feed_scenario) != len(filter_ingredients_ids):
@@ -191,8 +213,26 @@ class Data:
                             "One or more ingredients in SCENARIO could not be found on INGREDIENTS.\n"
                             "{0}\n\n{1}".format(unwrap_list(filter_ingredients_ids), self.data_feed_scenario))
 
+        # Scenario Sheet
         self.data_scenario = pandas.read_excel(excel_file, sheet_cattle)
         self.headers_data_scenario = self.ScenarioParameters(*(list(self.data_scenario)))
+
+        # LCA Sheet
+        self.data_lca_scenario = pandas.read_excel(excel_file, sheet_lca_scenario)
+        self.headers_data_lca_scenario = self.LCAScenario(*(list(self.data_lca_scenario)))
+
+        # LCA Library Sheet
+        data_lca_lib = pandas.read_excel(excel_file, sheet_lca_library)
+        self.headers_data_lca_lib = self.LCALib(*(list(data_lca_lib)))
+
+        self.data_lca_lib = self.filter_column(data_lca_lib,
+                                               self.headers_data_lca_lib.s_ing_id,
+                                               unwrap_list(filter_ingredients_ids))
+
+        if len(self.data_lca_lib) != len(filter_ingredients_ids):
+            raise Exception("Inconsistent data:\n"
+                            "One or more ingredients in SCENARIO could not be found on LCA LIBRARY.\n"
+                            "{0}\n\n{1}".format(unwrap_list(filter_ingredients_ids), self.data_feed_scenario))
 
     @staticmethod
     def store_output(results_dict, filename="output.xlsx"):
@@ -211,8 +251,10 @@ class Data:
 
 if __name__ == "__main__":
     print("hello data_handler")
-    test_ds = Data(filename="Input.xlsx",
-                   sheet_feed="FeedLibrary",
+    test_ds = Data(filename="../Input.xlsx",
+                   sheet_feed_lib="Feed Library",
                    sheet_scenario="Feeds",
-                   sheet_cattle="Scenario"
+                   sheet_cattle="Scenario",
+                   sheet_lca_scenario = 'LCA',
+                   sheet_lca_library = 'LCA Library'
                    )
