@@ -182,47 +182,51 @@ class Data:
         ds = data_frame1.mask(col_name, unwrap_list(elements))
         return ds
 
+    def __init__(self):
+        pass
+
     def __init__(self,
                  filename,
                  sheet_feed_lib,
+                 sheet_feeds,
                  sheet_scenario,
-                 sheet_cattle,
-                 sheet_lca_scenario,
-                 sheet_lca_library):
+                 sheet_lca,
+                 sheet_lca_lib):
         """
         Read excel file
-        I know, I know, shouldn't be hardcoded, one day I will fix that
+        :param filename : {'name'}
+        :param sheet_* : {'name', 'headers'}
         """
-        excel_file = pandas.ExcelFile(filename)
+        excel_file = pandas.ExcelFile(filename['name'])
 
         # Feed Library Sheet
-        data_feed_lib = pandas.read_excel(excel_file, sheet_feed_lib)
-        self.headers_data_feed = self.IngredientProperties(*(list(data_feed_lib)))
+        data_feed_lib = pandas.read_excel(excel_file, sheet_feed_lib['name'])
+        self.headers_feed_properties = self.IngredientProperties(*(list(data_feed_lib)))
 
-        self.data_available_feed = pandas.read_excel(excel_file, sheet_scenario)
+        self.data_available_feed = pandas.read_excel(excel_file, sheet_feeds['name'])
         self.headers_available_feed = self.ScenarioFeedProperties(*(list(self.data_available_feed)))
 
         # Feeds Sheet
         filter_ingredients_ids = \
             self.data_available_feed.filter(items=[self.headers_available_feed.s_ID]).values
-        self.data_feed_scenario = self.filter_column(data_feed_lib,
-                                                     self.headers_data_feed.s_ID,
-                                                     unwrap_list(filter_ingredients_ids))
-        if len(self.data_feed_scenario) != len(filter_ingredients_ids):
+        self.data_feed_properties = self.filter_column(data_feed_lib,
+                                                       self.headers_feed_properties.s_ID,
+                                                       unwrap_list(filter_ingredients_ids))
+        if len(self.data_feed_properties) != len(filter_ingredients_ids):
             raise Exception("Inconsistent data:\n"
                             "One or more ingredients in SCENARIO could not be found on INGREDIENTS.\n"
-                            "{0}\n\n{1}".format(unwrap_list(filter_ingredients_ids), self.data_feed_scenario))
+                            "{0}\n\n{1}".format(unwrap_list(filter_ingredients_ids), self.data_feed_properties))
 
         # Scenario Sheet
-        self.data_scenario = pandas.read_excel(excel_file, sheet_cattle)
+        self.data_scenario = pandas.read_excel(excel_file, sheet_scenario['name'])
         self.headers_data_scenario = self.ScenarioParameters(*(list(self.data_scenario)))
 
         # LCA Sheet
-        self.data_lca_scenario = pandas.read_excel(excel_file, sheet_lca_scenario)
+        self.data_lca_scenario = pandas.read_excel(excel_file, sheet_lca['name'])
         self.headers_data_lca_scenario = self.LCAScenario(*(list(self.data_lca_scenario)))
 
         # LCA Library Sheet
-        data_lca_lib = pandas.read_excel(excel_file, sheet_lca_library)
+        data_lca_lib = pandas.read_excel(excel_file, sheet_lca_lib['name'])
         self.headers_data_lca_lib = self.LCALib(*(list(data_lca_lib)))
 
         self.data_lca_lib = self.filter_column(data_lca_lib,
@@ -232,7 +236,13 @@ class Data:
         if len(self.data_lca_lib) != len(filter_ingredients_ids):
             raise Exception("Inconsistent data:\n"
                             "One or more ingredients in SCENARIO could not be found on LCA LIBRARY.\n"
-                            "{0}\n\n{1}".format(unwrap_list(filter_ingredients_ids), self.data_feed_scenario))
+                            "{0}\n\n{1}".format(unwrap_list(filter_ingredients_ids), self.data_feed_properties))
+
+        logging.info("\n\n{}".format(self.data_feed_properties))
+        logging.info("\n\n")
+        logging.info("\n\n{}".format(self.data_available_feed))
+        logging.info("\n\n")
+        logging.info("\n\n{}".format(self.data_scenario))
 
     @staticmethod
     def store_output(results_dict, filename="output.xlsx"):
@@ -253,8 +263,8 @@ if __name__ == "__main__":
     print("hello data_handler")
     test_ds = Data(filename="../Input.xlsx",
                    sheet_feed_lib="Feed Library",
-                   sheet_scenario="Feeds",
-                   sheet_cattle="Scenario",
-                   sheet_lca_scenario = 'LCA',
-                   sheet_lca_library = 'LCA Library'
+                   sheet_feeds="Feeds",
+                   sheet_scenario="Scenario",
+                   sheet_lca='LCA',
+                   sheet_lca_lib='LCA Library'
                    )

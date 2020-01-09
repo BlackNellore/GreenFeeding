@@ -1,5 +1,5 @@
 from model import data_handler
-from model.lp_model import Model
+from model.lp_model import model_factory
 from optimizer.numerical_methods import Searcher, Status
 import logging
 import time
@@ -8,14 +8,8 @@ INPUT = {}
 OUTPUT = None
 
 [ds,
- ingredients,
- h_ingredients,
- available_feed,
- h_available_feed,
  scenarios,
- h_scenarios,
- lca,
- lca_scenarios] = [None for i in range(7)]
+ h_scenarios] = [None for i in range(3)]
 
 
 def run():
@@ -23,13 +17,15 @@ def run():
     results = {}
     for scenario in scenarios.values:
         parameters = dict(zip(h_scenarios, scenario))
+        lca_id = parameters[h_scenarios.s_lca_id]
+
         logging.info("Current Scenario:")
         logging.info("{}".format(parameters))
 
         logging.info("Initializing model")
-        model = Model(ds, parameters)
+        model = model_factory(ds, parameters, lca_id)
         logging.info("Initializing numerical methods")
-        optimizer = Searcher(model)
+        optimizer = Searcher(model) # TODO: epsilon-constrained
 
         tol = parameters[h_scenarios.s_tol]
         logging.info("Refining bounds")
@@ -44,16 +40,20 @@ def run():
             continue
         logging.info("Refinement completed")
         logging.info("Choosing optimization method")
-        if parameters[h_scenarios.s_algorithm] == "GSS":
-            logging.info("Optimizing with Golden-Section Search algorithm")
-            optimizer.golden_section_search(lb, ub, tol)
-        elif parameters[h_scenarios.s_algorithm] == "BF":
-            logging.info("Optimizing with Brute Force algorithm")
-            optimizer.brute_force_search(lb, ub, tol)
+        if lca_id <= 0:
+            if parameters[h_scenarios.s_algorithm] == "GSS":
+                logging.info("Optimizing with Golden-Section Search algorithm")
+                optimizer.golden_section_search(lb, ub, tol)
+            elif parameters[h_scenarios.s_algorithm] == "BF":
+                logging.info("Optimizing with Brute Force algorithm")
+                optimizer.brute_force_search(lb, ub, tol)
+            else:
+                logging.error("Algorithm {} not found, scenario skipped".format(
+                    parameters[h_scenarios.s_algorithm]))
+                continue
         else:
-            logging.error("Algorithm {} not found, scenario skipped".format(
-                parameters[h_scenarios.s_algorithm]))
-            continue
+            # TODO: implement epsilon-constrained
+            pass
         logging.info("Saving solution locally")
         status, solution = optimizer.get_results()
         if status == Status.SOLVED:
@@ -73,30 +73,16 @@ def config(input_info, output_info):
     OUTPUT = output_info
 
 
-def initialize(special_msg):
-    global ds, ingredients, h_ingredients, available_feed, h_available_feed, scenarios, h_scenarios
+def initialize(msg):
+    global ds, feed_properties, h_feed_properties, scenarios, h_scenarios
     ds = data_handler.Data(**INPUT)
 
-    ingredients = ds.data_feed_scenario
-    h_ingredients = ds.headers_data_feed
-    available_feed = ds.data_available_feed
-    h_available_feed = ds.headers_available_feed
+    feed_properties = ds.data_feed_properties
+    h_feed_properties = ds.headers_feed_properties
     scenarios = ds.data_scenario
     h_scenarios = ds.headers_data_scenario
 
-    fmt_str = "%(asctime)s: %(levelname)s: %(funcName)s Line:%(lineno)d %(message)s"
-    logging.basicConfig(filename="activity.log",
-                        level=logging.DEBUG,
-                        filemode="w",
-                        format=fmt_str)
-    logging.info(special_msg)
-    logging.info("\n\n{}".format(ingredients))
-    logging.info("\n\n")
-    logging.info("\n\n{}".format(available_feed))
-    logging.info("\n\n")
-    logging.info("\n\n{}".format(scenarios))
-
-    ingredients.index = range(available_feed.last_valid_index() + 1)
+    logging.info(msg)
 
 
 if __name__ == "__main__":

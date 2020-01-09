@@ -5,16 +5,23 @@ import logging
 
 ds = None
 
-ingredients, h_ingredients, available_feed, h_available_feed, scenarios, h_scenarios = [None for i in range(6)]
+available_feed, h_available_feed, feed_properties, h_feed_properties = [None for i in range(4)]
 
 cnem_lb, cnem_ub = 0.8, 3
 
 bigM = 100000
 
 
+def model_factory(ds, parameters, lca=-1):
+    if lca <= 0:
+        return Model(ds, parameters)
+    else:
+        return ModelLCA(ds, parameters)
+
+
 class Model:
     p_id, p_breed, p_sbw, p_bcs, p_be, p_l, p_sex, p_a2, p_ph, p_selling_price, p_linearization_factor, \
-        p_algorithm, p_identifier, p_lb, p_ub, p_tol, p_lca = [None for i in range(17)]
+        p_algorithm, p_identifier, p_lb, p_ub, p_tol = [None for i in range(16)]
 
     _diet = None
     _p_mpm = None
@@ -33,7 +40,6 @@ class Model:
 
     def __init__(self, out_ds, parameters):
         self.__cast_data(out_ds, parameters)
-        pass
 
     def run(self, p_id, p_cnem):
         """Either build or update model, solve ir and return solution = {dict xor None}"""
@@ -108,26 +114,18 @@ class Model:
 
     def __cast_data(self, out_ds, parameters):
         """Retrieve parameters data from table. See data_handler.py for more"""
-        global ds
-        global ingredients
-        global h_ingredients
-        global available_feed
-        global h_available_feed
-        global scenarios
-        global h_scenarios
+        global ds, available_feed, h_available_feed, feed_properties, h_feed_properties
 
         ds = out_ds
 
-        ingredients = ds.data_feed_scenario
-        h_ingredients = ds.headers_data_feed
+        feed_properties = ds.data_feed_properties
+        h_feed_properties = ds.headers_feed_properties
         available_feed = ds.data_available_feed
         h_available_feed = ds.headers_available_feed
-        scenarios = ds.data_scenario
-        h_scenarios = ds.headers_data_scenario
 
         self.n_ingredients = available_feed.last_valid_index()
         self.cost_vector = ds.get_column_data(available_feed, h_available_feed.s_feed_cost)
-        self.neg_vector = ds.get_column_data(ingredients, h_ingredients.s_NEga)
+        self.neg_vector = ds.get_column_data(feed_properties, h_feed_properties.s_NEga)
         [self.p_id, self.p_breed, self.p_sbw, self.p_bcs, self.p_be, self.p_l, self.p_sex, self.p_a2, self.p_ph,
          self.p_selling_price, self.p_linearization_factor,
          self.p_algorithm, self.p_identifier, self.p_lb, self.p_ub, self.p_tol, self.p_lca] = parameters.values()
@@ -160,12 +158,12 @@ class Model:
 
         "Constraint: sum(x a) == CNEm"
         diet.add_constraint(names=["CNEm GE"],
-                            lin_expr=[[x_vars, ds.get_column_data(ingredients, h_ingredients.s_NEma)]],
+                            lin_expr=[[x_vars, ds.get_column_data(feed_properties, h_feed_properties.s_NEma)]],
                             rhs=[self._p_cnem * 0.999],
                             senses=["G"]
                             )
         diet.add_constraint(names=["CNEm LE"],
-                            lin_expr=[[x_vars, ds.get_column_data(ingredients, h_ingredients.s_NEma)]],
+                            lin_expr=[[x_vars, ds.get_column_data(feed_properties, h_feed_properties.s_NEma)]],
                             rhs=[self._p_cnem * 1.001],
                             senses=["L"]
                             )
@@ -176,14 +174,14 @@ class Model:
                             senses=["E"]
                             )
         "Constraint: sum(x a)>= MPm"
-        mpm_list = [nrc.mp(*ds.get_column_data(ds.filter_column(ingredients, h_ingredients.s_ID, val_col),
-                                               [h_ingredients.s_DM,
-                                                h_ingredients.s_TDN,
-                                                h_ingredients.s_CP,
-                                                h_ingredients.s_RUP,
-                                                h_ingredients.s_Forage,
-                                                h_ingredients.s_Fat]))
-                    for val_col in ds.get_column_data(ingredients, h_ingredients.s_ID, int)]
+        mpm_list = [nrc.mp(*ds.get_column_data(ds.filter_column(feed_properties, h_feed_properties.s_ID, val_col),
+                                               [h_feed_properties.s_DM,
+                                                h_feed_properties.s_TDN,
+                                                h_feed_properties.s_CP,
+                                                h_feed_properties.s_RUP,
+                                                h_feed_properties.s_Forage,
+                                                h_feed_properties.s_Fat]))
+                    for val_col in ds.get_column_data(feed_properties, h_feed_properties.s_ID, int)]
 
         for i, v in enumerate(mpm_list):
             mpm_list[i] = v - self.neg_vector[i] * (nrc.swg_const(self._p_dmi, self._p_cnem, self._p_nem,
@@ -196,8 +194,8 @@ class Model:
                             senses=["G"]
                             )
 
-        rdp_data = [(1 - ds.get_column_data(ingredients, h_ingredients.s_RUP)[x_index])
-                    * ds.get_column_data(ingredients, h_ingredients.s_CP)[x_index]
+        rdp_data = [(1 - ds.get_column_data(feed_properties, h_feed_properties.s_RUP)[x_index])
+                    * ds.get_column_data(feed_properties, h_feed_properties.s_CP)[x_index]
                     for x_index in range(len(x_vars))]
 
         "Constraint: RUP: sum(x a) >= 0.125 CNEm"
@@ -209,14 +207,14 @@ class Model:
 
         "Constraint: Fat: sum(x a) <= 0.06 DMI"
         diet.add_constraint(names=["Fat"],
-                            lin_expr=[[x_vars, ds.get_column_data(ingredients, h_ingredients.s_Fat)]],
+                            lin_expr=[[x_vars, ds.get_column_data(feed_properties, h_feed_properties.s_Fat)]],
                             rhs=[0.06],
                             senses=["L"]
                             )
 
         "Constraint: peNDF: sum(x a) <= peNDF DMI"
-        pendf_data = [ds.get_column_data(ingredients, h_ingredients.s_NDF)[x_index]
-                      * ds.get_column_data(ingredients, h_ingredients.s_pef)[x_index]
+        pendf_data = [ds.get_column_data(feed_properties, h_feed_properties.s_NDF)[x_index]
+                      * ds.get_column_data(feed_properties, h_feed_properties.s_pef)[x_index]
                       for x_index in range(len(x_vars))]
         diet.add_constraint(names=["peNDF"],
                             lin_expr=[[x_vars, pendf_data]],
@@ -242,3 +240,12 @@ class Model:
         seq_of_pairs = tuple(zip(new_rhs.keys(), new_rhs.values()))
         self._diet.set_constraint_rhs(seq_of_pairs)
         self._diet.set_objective_function(list(zip(self._var_names_x, self.cost_obj_vector)))
+
+
+class ModelLCA(Model):
+    p_lca = [None for i in range(17)]
+
+    def __init__(self, out_ds, parameters):
+        Model.__init__(self, out_ds, parameters)
+        self.__cast_data(out_ds, parameters)
+        pass
