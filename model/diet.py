@@ -1,4 +1,5 @@
 from model import data_handler
+import pandas
 from model.lp_model import model_factory
 from optimizer.numerical_methods import Searcher, Status
 import logging
@@ -7,17 +8,18 @@ import time
 INPUT = {}
 OUTPUT = None
 
-[ds,
- scenarios,
- h_scenarios] = [None for i in range(3)]
+ds: data_handler.Data = None
+
+data_scenario: pandas.DataFrame = None  # Scenario
+headers_scenario: data_handler.Data.ScenarioParameters = None  # Scenario
 
 
 def run():
     logging.info("Iterating through scenarios")
     results = {}
-    for scenario in scenarios.values:
-        parameters = dict(zip(h_scenarios, scenario))
-        lca_id = parameters[h_scenarios.s_lca_id]
+    for scenario in data_scenario.values:
+        parameters = dict(zip(headers_scenario, scenario))
+        lca_id = parameters[headers_scenario.s_lca_id]
 
         logging.info("Current Scenario:")
         logging.info("{}".format(parameters))
@@ -27,37 +29,47 @@ def run():
         logging.info("Initializing numerical methods")
         optimizer = Searcher(model) # TODO: epsilon-constrained
 
-        tol = parameters[h_scenarios.s_tol]
+        tol = parameters[headers_scenario.s_tol]
         logging.info("Refining bounds")
-        lb, ub = optimizer.refine_bounds(parameters[h_scenarios.s_lb],
-                                         parameters[h_scenarios.s_ub],
+        lb, ub = optimizer.refine_bounds(parameters[headers_scenario.s_lb],
+                                         parameters[headers_scenario.s_ub],
                                          tol
                                          )
 
         if lb is None or ub is None:
             logging.warning("There is no feasible solution in the domain {0} <= CNEm <= {1}"
-                            .format(parameters[h_scenarios.s_lb], parameters[h_scenarios.s_ub]))
+                            .format(parameters[headers_scenario.s_lb], parameters[headers_scenario.s_ub]))
             continue
         logging.info("Refinement completed")
         logging.info("Choosing optimization method")
         if lca_id <= 0:
-            if parameters[h_scenarios.s_algorithm] == "GSS":
+            if parameters[headers_scenario.s_algorithm] == "GSS":
                 logging.info("Optimizing with Golden-Section Search algorithm")
                 optimizer.golden_section_search(lb, ub, tol)
-            elif parameters[h_scenarios.s_algorithm] == "BF":
+            elif parameters[headers_scenario.s_algorithm] == "BF":
                 logging.info("Optimizing with Brute Force algorithm")
                 optimizer.brute_force_search(lb, ub, tol)
             else:
                 logging.error("Algorithm {} not found, scenario skipped".format(
-                    parameters[h_scenarios.s_algorithm]))
+                    parameters[headers_scenario.s_algorithm]))
                 continue
         else:
             # TODO: implement epsilon-constrained
-            pass
+            if parameters[headers_scenario.s_algorithm] == "GSS":
+                logging.info("Optimizing with Golden-Section Search algorithm")
+                optimizer.golden_section_search(lb, ub, tol)
+            elif parameters[headers_scenario.s_algorithm] == "BF":
+                logging.info("Optimizing with Brute Force algorithm")
+                optimizer.brute_force_search(lb, ub, tol)
+            else:
+                logging.error("Algorithm {} not found, scenario skipped".format(
+                    parameters[headers_scenario.s_algorithm]))
+                continue
+
         logging.info("Saving solution locally")
         status, solution = optimizer.get_results()
         if status == Status.SOLVED:
-            results[parameters[h_scenarios.s_identifier]] = solution
+            results[parameters[headers_scenario.s_identifier]] = solution
         else:
             logging.warning("Bad Status: {0}, {1}".format(status, parameters))
 
@@ -74,14 +86,10 @@ def config(input_info, output_info):
 
 
 def initialize(msg):
-    global ds, feed_properties, h_feed_properties, scenarios, h_scenarios
+    global ds, data_scenario, headers_scenario
     ds = data_handler.Data(**INPUT)
-
-    feed_properties = ds.data_feed_properties
-    h_feed_properties = ds.headers_feed_properties
-    scenarios = ds.data_scenario
-    h_scenarios = ds.headers_data_scenario
-
+    data_scenario = ds.data_scenario
+    headers_scenario = ds.headers_scenario
     logging.info(msg)
 
 
