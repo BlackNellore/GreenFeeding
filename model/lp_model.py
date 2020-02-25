@@ -126,31 +126,45 @@ class Model:
         """Retrieve parameters data from table. See data_handler.py for more"""
         self.ds = out_ds
 
-        self.data_feed_lib = self.ds.data_feed_lib
-        self.headers_feed_lib = self.ds.headers_feed_lib
         self.data_feed_scenario = self.ds.data_feed_scenario
         self.headers_feed_scenario = self.ds.headers_feed_scenario
 
-        self.n_ingredients = self.data_feed_scenario.last_valid_index() + 1
-        self.cost_vector = self.ds.get_column_data(self.data_feed_scenario, self.headers_feed_scenario.s_feed_cost)
-        self.neg_vector = self.ds.get_column_data(self.data_feed_lib, self.headers_feed_lib.s_NEga)
-        [self.p_id, self.p_feed_scenario, self.p_breed, self.p_sbw, self.p_bcs, self.p_be, self.p_l, self.p_sex, self.p_a2, self.p_ph,
+        [self.p_id, self.p_feed_scenario, self.p_breed, self.p_sbw, self.p_bcs, self.p_be, self.p_l, self.p_sex,
+         self.p_a2, self.p_ph,
          self.p_selling_price, self.p_linearization_factor,
-         self.p_algorithm, self.p_identifier, self.p_lb, self.p_ub, self.p_tol, self.p_lca_id, self.p_obj] = parameters.values()
+         self.p_algorithm, self.p_identifier, self.p_lb, self.p_ub, self.p_tol, self.p_lca_id,self.p_obj] = parameters.values()
 
-        ingredients = self.ds.data_feed_lib
-        h_ingredients = self.ds.headers_feed_lib
         headers_feed_scenario = self.ds.headers_feed_scenario
         self.data_feed_scenario = self.ds.filter_column(self.ds.data_feed_scenario,
                                                         self.ds.headers_feed_scenario.s_feed_scenario,
                                                         self.p_feed_scenario)
+        self.data_feed_scenario = self.ds.sort_df(self.data_feed_scenario, self.headers_feed_scenario.s_ID)
 
+        self.ingredient_ids = list(
+            self.ds.get_column_data(self.data_feed_scenario, self.headers_feed_scenario.s_ID, int))
+
+        self.headers_feed_lib = self.ds.headers_feed_lib
+        self.data_feed_lib = self.ds.filter_column(self.ds.data_feed_lib, self.headers_feed_lib.s_ID,
+                                                   self.ingredient_ids)
+
+        self.cost_vector = self.ds.sorted_column(self.data_feed_scenario, self.headers_feed_scenario.s_feed_cost,
+                                                 self.ingredient_ids,
+                                                 self.headers_feed_scenario.s_ID)
+        self.neg_vector = self.ds.sorted_column(self.data_feed_lib, self.headers_feed_lib.s_NEga,
+                                                self.ingredient_ids,
+                                                self.headers_feed_lib.s_ID)
         self.n_ingredients = self.data_feed_scenario.shape[0]
-        self.cost_vector = self.ds.get_column_data(self.data_feed_scenario, headers_feed_scenario.s_feed_cost)
-        dm_af_coversion = self.ds.get_column_data(ingredients, h_ingredients.s_DM)
+        self.cost_vector = self.ds.sorted_column(self.data_feed_scenario, headers_feed_scenario.s_feed_cost,
+                                                 self.ingredient_ids,
+                                                 self.headers_feed_scenario.s_ID)
+        dm_af_coversion = self.ds.sorted_column(self.data_feed_lib, self.headers_feed_lib.s_DM,
+                                                self.ingredient_ids,
+                                                self.headers_feed_lib.s_ID)
         for i in range(len(self.cost_vector)):
             self.cost_vector[i] /= dm_af_coversion[i]
-        self.neg_vector = self.ds.get_column_data(ingredients, h_ingredients.s_NEga)
+        self.neg_vector = self.ds.sorted_column(self.data_feed_lib, self.headers_feed_lib.s_NEga,
+                                                self.ingredient_ids,
+                                                self.headers_feed_lib.s_ID)
 
     def _compute_parameters(self):
         """Compute parameters variable with CNEm"""
@@ -180,28 +194,42 @@ class Model:
                 if swg[i] == 0:
                     swg[i] = 1/bigM
                 self.cost_obj_vector[i] = (self.revenue_obj_vector[i] - self.expenditure_obj_vector[i])/swg[i]
+        pass
 
     def _build_model(self):
         """Build model (initially based on CPLEX 12.8.1)"""
         self._diet = optimizer.Optimizer()
-        self._var_names_x = ["x" + str(j) for j in range(self.n_ingredients)]
+        self._var_names_x = ["x" + str(f_id)
+                             for f_id in self.ingredient_ids]
 
         diet = self._diet
         diet.set_sense(sense="max")
 
         x_vars = list(diet.add_variables(obj=self.cost_obj_vector,
-                                         lb=self.ds.get_column_data(self.data_feed_scenario, self.headers_feed_scenario.s_min),
-                                         ub=self.ds.get_column_data(self.data_feed_scenario, self.headers_feed_scenario.s_max),
+                                         lb=self.ds.sorted_column(self.data_feed_scenario,
+                                                                  self.headers_feed_scenario.s_min,
+                                                                  self.ingredient_ids,
+                                                                  self.headers_feed_scenario.s_ID),
+                                         ub=self.ds.sorted_column(self.data_feed_scenario,
+                                                                  self.headers_feed_scenario.s_max,
+                                                                  self.ingredient_ids,
+                                                                  self.headers_feed_scenario.s_ID),
                                          names=self._var_names_x))
 
         "Constraint: sum(x a) == CNEm"
         diet.add_constraint(names=["CNEm GE"],
-                            lin_expr=[[x_vars, self.ds.get_column_data(self.data_feed_lib, self.headers_feed_lib.s_NEma)]],
+                            lin_expr=[[x_vars, self.ds.sorted_column(self.data_feed_lib,
+                                                                     self.headers_feed_lib.s_NEma,
+                                                                     self.ingredient_ids,
+                                                                     self.headers_feed_lib.s_ID)]],
                             rhs=[self._p_cnem * 0.999],
                             senses=["G"]
                             )
         diet.add_constraint(names=["CNEm LE"],
-                            lin_expr=[[x_vars, self.ds.get_column_data(self.data_feed_lib, self.headers_feed_lib.s_NEma)]],
+                            lin_expr=[[x_vars, self.ds.sorted_column(self.data_feed_lib,
+                                                                     self.headers_feed_lib.s_NEma,
+                                                                     self.ingredient_ids,
+                                                                     self.headers_feed_lib.s_ID)]],
                             rhs=[self._p_cnem * 1.001],
                             senses=["L"]
                             )
@@ -212,15 +240,16 @@ class Model:
                             senses=["E"]
                             )
         "Constraint: sum(x a)>= MPm"
-        mpm_list = [nrc.mp(*self.ds.get_column_data(
-            self.ds.filter_column(self.data_feed_lib, self.headers_feed_lib.s_ID, val_col),
-            [self.headers_feed_lib.s_DM,
-             self.headers_feed_lib.s_TDN,
-             self.headers_feed_lib.s_CP,
-             self.headers_feed_lib.s_RUP,
-             self.headers_feed_lib.s_Forage,
-             self.headers_feed_lib.s_Fat]))
-                    for val_col in self.ds.get_column_data(self.data_feed_lib, self.headers_feed_lib.s_ID, int)]
+        mp_properties = self.ds.sorted_column(self.data_feed_lib,
+                                              [self.headers_feed_lib.s_DM,
+                                               self.headers_feed_lib.s_TDN,
+                                               self.headers_feed_lib.s_CP,
+                                               self.headers_feed_lib.s_RUP,
+                                               self.headers_feed_lib.s_Forage,
+                                               self.headers_feed_lib.s_Fat],
+                                              self.ingredient_ids,
+                                              self.headers_feed_lib.s_ID)
+        mpm_list = [nrc.mp(*row) for row in mp_properties]
 
         for i, v in enumerate(mpm_list):
             mpm_list[i] = v - self.neg_vector[i] * (nrc.swg_const(self._p_dmi, self._p_cnem, self._p_nem,
@@ -233,8 +262,14 @@ class Model:
                             senses=["G"]
                             )
 
-        rdp_data = [(1 - self.ds.get_column_data(self.data_feed_lib, self.headers_feed_lib.s_RUP)[x_index])
-                    * self.ds.get_column_data(self.data_feed_lib, self.headers_feed_lib.s_CP)[x_index]
+        rdp_data = [(1 - self.ds.sorted_column(self.data_feed_lib,
+                                               self.headers_feed_lib.s_RUP,
+                                               self.ingredient_ids,
+                                               self.headers_feed_lib.s_ID)[x_index])
+                    * self.ds.sorted_column(self.data_feed_lib,
+                                            self.headers_feed_lib.s_CP,
+                                            self.ingredient_ids,
+                                            self.headers_feed_lib.s_ID)[x_index]
                     for x_index in range(len(x_vars))]
 
         "Constraint: RUP: sum(x a) >= 0.125 CNEm"
@@ -246,14 +281,23 @@ class Model:
 
         "Constraint: Fat: sum(x a) <= 0.06 DMI"
         diet.add_constraint(names=["Fat"],
-                            lin_expr=[[x_vars, self.ds.get_column_data(self.data_feed_lib, self.headers_feed_lib.s_Fat)]],
+                            lin_expr=[[x_vars, self.ds.sorted_column(self.data_feed_lib,
+                                                                     self.headers_feed_lib.s_Fat,
+                                                                     self.ingredient_ids,
+                                                                     self.headers_feed_lib.s_ID)]],
                             rhs=[0.06],
                             senses=["L"]
                             )
 
         "Constraint: peNDF: sum(x a) <= peNDF DMI"
-        pendf_data = [self.ds.get_column_data(self.data_feed_lib, self.headers_feed_lib.s_NDF)[x_index]
-                      * self.ds.get_column_data(self.data_feed_lib, self.headers_feed_lib.s_pef)[x_index]
+        pendf_data = [self.ds.sorted_column(self.data_feed_lib,
+                                            self.headers_feed_lib.s_NDF,
+                                            self.ingredient_ids,
+                                            self.headers_feed_lib.s_ID)[x_index]
+                      * self.ds.sorted_column(self.data_feed_lib,
+                                              self.headers_feed_lib.s_pef,
+                                              self.ingredient_ids,
+                                              self.headers_feed_lib.s_ID)[x_index]
                       for x_index in range(len(x_vars))]
         diet.add_constraint(names=["peNDF"],
                             lin_expr=[[x_vars, pendf_data]],
@@ -264,6 +308,8 @@ class Model:
         # TODO: Put constraint to limit Urea in the diet: sum(x) * DMI <= up_limit
 
         self.constraints_names = diet.get_constraints_names()
+        diet.write_lp(name="file.lp")
+        pass
 
     def _update_model(self):
         """Update RHS values on the model based on the new CNEm and updated parameters"""
@@ -298,14 +344,18 @@ class ModelLCA(Model):
         Model._cast_data(self, out_ds, parameters)
         self.headers_lca_scenario = self.ds.headers_lca_scenario
         self.data_lca_scenario = self.ds.filter_column(self.ds.data_lca_scenario, self.ds.headers_lca_scenario.s_ID,
-                                                  self.p_lca_id)
+                                                       self.p_lca_id)
         self.data_lca_lib = self.ds.filter_column(self.ds.data_lca_lib,
                                                   self.ds.headers_lca_lib.s_ing_id,
-                                                  list(self.data_feed_scenario[self.headers_feed_scenario.s_ID]))
+                                                  self.ingredient_ids)
+
+        self.data_lca_lib = self.ds.sort_df(self.data_lca_lib, self.ds.headers_lca_lib.s_ing_id)
+        if self.ingredient_ids != list(self.data_lca_lib[self.ds.headers_lca_lib.s_ing_id]):
+            raise IndexError("LCA Library does not match all ingredients in Feeds")
 
         self.lca_weights = {}
         for h in self.headers_lca_scenario:
-            # TODO: maybe parametrize trhis in config.py?
+            # TODO: maybe parametrize this in config.py?
             if "LCA_" in h:
                 new_h = h.replace("_weight", "")
                 self.lca_weights[new_h] = list(self.data_lca_scenario[h])[0]

@@ -36,7 +36,7 @@ class NRC_eq:
         return NRC_eq.mpm(sbw), NRC_eq.dmi(cnem, sbw), NRC_eq.nem(sbw, bcs, be, l, sex, a2), NRC_eq.pe_ndf(ph_val)
 
     @staticmethod
-    def mp(p_dmi, p_tdn, p_cp, p_rup, p_forage, p_ee):
+    def mp(p_dmi=0, p_tdn=0, p_cp=0, p_rup=0, p_forage=0, p_ee=0):
         """Metabolizable Protein"""
         if p_dmi > 1:
             percentage = 0.01
