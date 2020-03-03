@@ -241,7 +241,8 @@ class Model:
         :type names: list
         :return:
         """
-        # TODO: check length and raise error
+        if len(obj) != len(ub) or len(obj) != len(lb):
+            raise IndexError("lp_model > add_variables, vector's length don't match")
         if len(names) == 0:
             names = list(range(len(obj)))
         for i in range(len(names)):
@@ -297,6 +298,16 @@ class Model:
             if self.constraints[cons_tuple[0]]["sense"] == "G":
                 self.constraints[cons_tuple[0]]["lhs"] = cons_tuple[1]
 
+    def set_constraint_coefficients(self, seq_of_triplets):
+        for triplet in seq_of_triplets:
+            cst = triplet[0]
+            var = triplet[1]
+            val = triplet[2]
+            # self.constraints[cst]["coefficients"]
+            pass
+
+
+
     def set_objective_function(self, obj_vec):
         names = list(self.variables.keys())
         for i in range(len(self.variables)):
@@ -313,7 +324,13 @@ class Model:
     def get_constraints_rhs(self, constraints):
         rhs = []
         for cs_name in constraints:
-            rhs.append(self.solution.constraints[cs_name]["active"])
+            if self.constraints[cs_name]["sense"] == "E":
+                rhs.append(self.constraints[cs_name]["rhs"] - epsilon)
+            if self.constraints[cs_name]["sense"] == "L":
+                rhs.append(self.constraints[cs_name]["rhs"])
+            if self.constraints[cs_name]["sense"] == "G":
+                rhs.append(self.constraints[cs_name]["lhs"])
+
         return rhs
 
     def get_variable_names(self):
@@ -354,7 +371,7 @@ class Model:
             slacks.append(self.solution.constraints[cs_name]["slack"])
         return slacks
 
-    def write(self, **kwargs):
+    def write(self, filename):
         # Pffffffffff, no way I am implementing that
         pass
 

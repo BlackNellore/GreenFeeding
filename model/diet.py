@@ -1,7 +1,7 @@
 from model import data_handler
 import pandas
 from model.lp_model import model_factory
-from optimizer.numerical_methods import Searcher, Status
+from optimizer.numerical_methods import Searcher, Status, Algorithms
 import logging
 
 INPUT = {}
@@ -28,15 +28,15 @@ class Diet:
         results = {}
         for scenario in data_scenario.values:
             parameters = dict(zip(headers_scenario, scenario))
-            lca_id = parameters[headers_scenario.s_lca_id]
+            multiobjective = parameters[headers_scenario.s_multiobjectve]
 
             logging.info("Current Scenario:")
             logging.info("{}".format(parameters))
 
             logging.info("Initializing model")
-            model = model_factory(ds, parameters, lca_id)
+            model = model_factory(ds, parameters, parameters[headers_scenario.s_lca_id])
             logging.info("Initializing numerical methods")
-            optimizer = Searcher(model) # TODO: epsilon-constrained
+            optimizer = Searcher(model)
 
             tol = parameters[headers_scenario.s_tol]
             logging.info("Refining bounds")
@@ -51,29 +51,22 @@ class Diet:
                 continue
             logging.info("Refinement completed")
             logging.info("Choosing optimization method")
-            if lca_id <= 0:
-                if parameters[headers_scenario.s_algorithm] == "GSS":
-                    logging.info("Optimizing with Golden-Section Search algorithm")
-                    optimizer.golden_section_search(lb, ub, tol)
-                elif parameters[headers_scenario.s_algorithm] == "BF":
-                    logging.info("Optimizing with Brute Force algorithm")
-                    optimizer.brute_force_search(lb, ub, tol)
-                else:
-                    logging.error("Algorithm {} not found, scenario skipped".format(
-                        parameters[headers_scenario.s_algorithm]))
-                    continue
+
+            if parameters[headers_scenario.s_algorithm] == "GSS":
+                msg = "Golden-Section Search algorithm"
+            elif parameters[headers_scenario.s_algorithm] == "BF":
+                msg = "Brute Force algorithm"
             else:
-                # TODO: implement epsilon-constrained
-                if parameters[headers_scenario.s_algorithm] == "GSS":
-                    logging.info("Optimizing with Golden-Section Search algorithm")
-                    optimizer.golden_section_search(lb, ub, tol)
-                elif parameters[headers_scenario.s_algorithm] == "BF":
-                    logging.info("Optimizing with Brute Force algorithm")
-                    optimizer.brute_force_search(lb, ub, tol)
-                else:
-                    logging.error("Algorithm {} not found, scenario skipped".format(
-                        parameters[headers_scenario.s_algorithm]))
-                    continue
+                logging.error("Algorithm {} not found, scenario skipped".format(
+                    parameters[headers_scenario.s_algorithm]))
+                continue
+            algorithmn = Algorithms[parameters[headers_scenario.s_algorithm]]
+            if not multiobjective:
+                logging.info(f'Optimizing with {msg}')
+                optimizer.single_objective(algorithmn, lb, ub, tol)
+            else:
+                logging.info(f"Optimizing with multiobjective {chr(949)}-constrained based on {msg}")
+                optimizer.multi_objective(algorithmn, lb, ub, tol)
 
             logging.info("Saving solution locally")
             status, solution = optimizer.get_results()

@@ -1,12 +1,12 @@
 import numpy as np
 from aenum import Enum
 import logging
+from model.lp_model import Model, ModelLCA
 
 Status = Enum('Status', 'EMPTY READY SOLVED ERROR')
 
-
 class Searcher:
-    _model = None
+    _model: Model = None
     _obj_func_key = None
     _prefix_id = None
 
@@ -21,6 +21,7 @@ class Searcher:
 
         self._model = model
         self._obj_func_key = obj_func_key
+        self._solutions_multiobjective = []
         self._solutions = []
         self._status = Status.READY
         self._prefix_id = pre_id
@@ -36,7 +37,7 @@ class Searcher:
         space = np.linspace(v0, vf, int((vf - v0) / tol + 0.5))
         if direction == -1:
             space = reversed(space)
-        new_v = self.__brute_force(self._model.run, space, first_stop=True)
+        new_v = self.__brute_force(self._model.run, space, first_feasible=True)
         if new_v is None:
             return new_v
         else:
@@ -48,19 +49,19 @@ class Searcher:
             self.__clear_searcher()
         cnem_space = np.linspace(lb, ub, int(np.ceil((ub - lb) / p_tol)))
         bf_results = self.__brute_force(self._model.run, cnem_space)
-        if bf_results is None:
+        if len(bf_results) == 0:
             self._status = Status.ERROR
         else:
             self._status = Status.SOLVED
         self._solutions = bf_results
 
     @staticmethod
-    def __brute_force(f, search_space, first_stop=False):
+    def __brute_force(f, search_space, first_feasible=False):
         """
         Run Brute Force algorithm in a function f. In this model f is lp_model.Model.run()
         """
         try:
-            if first_stop:
+            if first_feasible:
                 for i, val in enumerate(search_space):
                     r = f(i, val)
                     logging.info("Brute force <iteration, cnem>: <{0}, {1}>".format(i, val))
@@ -109,34 +110,77 @@ class Searcher:
         inv_phi = (np.sqrt(5) - 1) / 2
         inv_phi2 = (3 - np.sqrt(5)) / 2
 
-        try:
-            logging.info("\n{0}".format(p_id))
-            (a, b) = (min(a, b), max(a, b))
-            if h is None:
-                h = b - a
-            if h <= tol:
-                return a, b
-            if c is None:
-                c = a + inv_phi2 * h
-            if d is None:
-                d = a + inv_phi * h
-            if fc is None:
-                solution = f(p_id, c)
-                fc = _get_f(solution)
-                results.append(solution)
-            if fd is None:
-                solution = f(p_id, d)
-                fd = _get_f(solution)
-                results.append(solution)
-            if fc > fd:
-                return self.__golden_section_search_recursive(
-                    f, a, d, results, p_id+1, tol, h * inv_phi, d=c, fd=fc)
+        # try:
+        logging.info("\n{0}".format(p_id))
+        (a, b) = (min(a, b), max(a, b))
+        if h is None:
+            h = b - a
+        if h <= tol:
+            return a, b
+        if c is None:
+            c = a + inv_phi2 * h
+        if d is None:
+            d = a + inv_phi * h
+        if fc is None:
+            # TODO solution may be None if the ub and lb are wrong
+            # happens in GSS in multi-objtective cause ub and lb are unkown sometimes
+            solution = f(p_id, c)
+            fc = _get_f(solution)
+            results.append(solution)
+        if fd is None:
+            # TODO solution may be None if the ub and lb are wrong
+            solution = f(p_id, d)
+            fd = _get_f(solution)
+            results.append(solution)
+        if fc > fd:
+            return self.__golden_section_search_recursive(
+                f, a, d, results, p_id+1, tol, h * inv_phi, d=c, fd=fc)
+        else:
+            return self.__golden_section_search_recursive(
+                f, c, b, results, p_id+1, tol, h * inv_phi, c=d, fc=fd)
+        # except TypeError as e:
+        #     logging.error("An error occurred in GSS method:\n{}".format(e))
+        #     return None, None
+
+    def single_objective(self, algorithm, lb, ub, tol):
+        self.__clear_searcher()
+        self._prefix_id = f"single objective lb={lb}, ub={ub}, algorithm={algorithm}"
+        getattr(self, algorithm)(lb, ub, tol)
+
+    def multi_objective(self, algorithm, lb, ub, tol):
+        # TODO: epsilon-constrained
+        self._model: ModelLCA = self._model
+        self._model.set_obj_weights(1.0, 0.0)
+        self.__clear_searcher()
+        self._prefix_id = f"multi objective lb={lb}, ub={ub}, algorithm={algorithm}, max f1"
+        getattr(self, algorithm)(lb, ub, tol)  # max f1
+
+        status, solution = self.get_results(best=True)  # get f1_ub, f2_lb
+        f1_ub, f2_ub = self._model.get_obj_sol(solution)  # get f1_ub, f2_lb
+
+        self._model.set_obj_weights(0.0, 1.0)
+        self.__clear_searcher()
+        self._prefix_id = f"multi objective lb={lb}, ub={ub}, algorithm={algorithm}, max f2"
+        getattr(self, algorithm)(lb, ub, tol)  # max f2
+        status, solution = self.get_results(best=True)  # get f1_lb, f2_ub
+        f1_lb, f2_lb = self._model.get_obj_sol(solution)  # get f1_l, f2_ub
+
+        n_vals = int(np.ceil((1 + f2_ub - f2_lb) / tol))
+        n_vals = 10
+        lca_rhs_space = np.linspace(f2_lb, f2_ub, n_vals)  # range[f2_lb, f2_ub]
+        self._model.set_obj_weights(1.0, 0.0)
+        for rhs in lca_rhs_space:
+            self._model.set_LCA_rhs(rhs)
+            self.__clear_searcher()
+            self._prefix_id = f"multi objective lb={lb}, ub={ub}, algorithm={algorithm}, rhs={rhs}"
+            getattr(self, algorithm)(lb, ub, tol)
+            status, solution = self.get_results(best=True)
+            # self._model.write_lp_inside(rhs)
+            if status == Status.SOLVED:
+                self._solutions_multiobjective.append(solution)
             else:
-                return self.__golden_section_search_recursive(
-                    f, c, b, results, p_id+1, tol, h * inv_phi, c=d, fc=fd)
-        except TypeError as e:
-            logging.error("An error occurred in GSS method:\n{}".format(e))
-            return None, None
+                print("")
+        self._solutions = self._solutions_multiobjective
 
     def get_results(self, best=False):
         """
@@ -163,20 +207,18 @@ class Searcher:
         if len(results) <= 0:
             return None
 
-        best_id = 0
-        aux = results[best_id]
-        for i, sol in enumerate(results):
-            if direction * sol > direction * aux:
-                best_id = i
-                aux = sol
-        return results[best_id]
+        obj_vals = [p['obj_func']*direction for p in results]
+        best_id = [i for i, j in enumerate(obj_vals) if j == max(obj_vals)]
+        return results[best_id[0]]
 
     def __clear_searcher(self):
         self._solutions.clear()
         self._status = Status.READY
-        self._prefix_id = "cl_{0}".format(self._prefix_id)
+        # self._prefix_id = "cl_{0}".format(self._prefix_id)
         self._model.prefix_id = self._prefix_id
 
+
+Algorithms = {'BF': 'brute_force_search', 'GSS': 'golden_section_search'}
 
 if __name__ == "__main__":
     print("hello numerical_methods")

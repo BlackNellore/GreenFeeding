@@ -113,6 +113,14 @@ class Optimizer:
         elif SOLVER == "HiGHS":
             self.model.set_constraint_rhs(seq_of_pairs)
 
+    def set_constraint_coefficients(self, seq_of_triplets):
+        """
+        [(constraint, var_name, value)]
+        """
+        if SOLVER == "CPLEX":
+            self.model.linear_constraints.set_coefficients(seq_of_triplets)
+        elif SOLVER == "HiGHS":
+            self.model.set_constraint_coefficients(seq_of_triplets)
 
     def set_objective_function(self, objective_vector):
         """

@@ -60,6 +60,7 @@ class Data:
         s_ub: str
         s_tol: str
         s_lca_id: str
+        s_multiobjectve: str
         s_obj: str
 
     # Sheet Feeds
@@ -142,7 +143,6 @@ class Data:
     class LCAScenario(NamedTuple):
         s_ID: str
         s_LCA_cost: str
-        s_Epislon: str
         s_LCA_weight: str
         s_LCA_GHG_weight: str
         s_Methane: str
@@ -172,7 +172,6 @@ class Data:
         :param sheet_* : {'name', 'headers'}
         """
         excel_file = pandas.ExcelFile(filename['name'])
-        # TODO: Be sure that everything is on the same order
 
         # Feed Library Sheet
         data_feed_lib = pandas.read_excel(excel_file, sheet_feed_lib['name'])
@@ -189,7 +188,9 @@ class Data:
                                                 self.headers_feed_lib.s_ID,
                                                 unwrap_list(filter_ingredients_ids))
 
-        # TODO Check if all ingredients exist in the library.
+        if set(list(self.data_feed_lib[self.headers_feed_lib.s_ID]))\
+                != set(list(self.data_feed_scenario[self.headers_feed_scenario.s_ID])):
+            raise IOError("Not all ingredients in Feeds are in the Feed Library")
 
         # Sheet Scenario
         self.data_scenario = pandas.read_excel(excel_file, sheet_scenario['name'])

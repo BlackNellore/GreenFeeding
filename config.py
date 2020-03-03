@@ -85,11 +85,11 @@ INPUT_FILE = {'filename': {'name': 'input.xlsx'},
                                              'UB',
                                              'Tol',
                                              'LCA ID',
+                                             'Multiobjective',
                                              'Obj']},
               'sheet_lca': {'name': 'LCA',
                             'headers': ['ID',
                                         'LCA cost',
-                                        'Epislon',
                                         'LCA weight',
                                         'LCA_GHG_weight',
                                         'Methane',
@@ -99,4 +99,4 @@ INPUT_FILE = {'filename': {'name': 'input.xlsx'},
                                             'Name',
                                             'LCA_GHG']}}
 OUTPUT_FILE = 'output.xlsx'
-SOLVER = 'HiGHS'
+SOLVER = 'CPLEX'

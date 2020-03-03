@@ -4,7 +4,7 @@ import pandas
 from model import data_handler
 from model.nrc_equations import NRC_eq as nrc
 import logging
-from model.data_handler import Data
+import math
 
 cnem_lb, cnem_ub = 0.8, 3
 
@@ -27,8 +27,9 @@ class Model:
     data_scenario: pandas.DataFrame = None  # Scenario
     headers_scenario: data_handler.Data.ScenarioParameters = None  # Scenario
 
-    p_id, p_feed_scenario, p_breed, p_sbw, p_bcs, p_be, p_l, p_sex, p_a2, p_ph, p_selling_price, p_linearization_factor, \
-    p_algorithm, p_identifier, p_lb, p_ub, p_tol, p_lca_id, p_obj = [None for i in range(19)]
+    p_id, p_feed_scenario, p_breed, p_sbw, p_bcs, p_be, p_l, p_sex, p_a2, p_ph, p_selling_price, \
+    p_linearization_factor, p_algorithm, p_identifier, p_lb, p_ub, p_tol, p_lca_id, p_multiobjective, \
+    p_obj = [None for i in range(20)]
 
     _diet = None
     _p_mpm = None
@@ -72,12 +73,7 @@ class Model:
         status = diet.get_solution_status()
         logging.info("Solution status: {}".format(status))
         if status.__contains__("infeasible"):
-            sol_id = {"Problem_ID": self.prefix_id + str(problem_id)}
-            params = dict(zip(["CNEm", "MPm", "DMI", "NEm", "peNDF"],
-                              [self._p_cnem, self._p_mpm * 0.001, self._p_dmi, self._p_nem, self._p_pe_ndf]))
-            sol = {**sol_id, **params}
-            self.opt_sol = None
-            logging.warning("Infeasible parameters:{}".format(sol))
+            self._infeasible_output(problem_id)
             return None
 
         sol_id = {"Problem_ID": problem_id}
@@ -113,6 +109,15 @@ class Model:
 
         return sol
 
+    def _infeasible_output(self, problem_id):
+        sol_id = {"Problem_ID": self.prefix_id + str(problem_id)}
+        params = dict(zip(["CNEm", "MPm", "DMI", "NEm", "peNDF"],
+                          [self._p_cnem, self._p_mpm * 0.001, self._p_dmi, self._p_nem, self._p_pe_ndf]))
+        sol = {**sol_id, **params}
+        self.opt_sol = None
+        # diet.write_lp(f"lp_infeasible_{str(problem_id)}.lp")
+        logging.warning("Infeasible parameters:{}".format(sol))
+
     # Parameters filled by inner method ._cast_data()
     n_ingredients = None
     cost_vector = None
@@ -130,9 +135,8 @@ class Model:
         self.headers_feed_scenario = self.ds.headers_feed_scenario
 
         [self.p_id, self.p_feed_scenario, self.p_breed, self.p_sbw, self.p_bcs, self.p_be, self.p_l, self.p_sex,
-         self.p_a2, self.p_ph,
-         self.p_selling_price, self.p_linearization_factor,
-         self.p_algorithm, self.p_identifier, self.p_lb, self.p_ub, self.p_tol, self.p_lca_id,self.p_obj] = parameters.values()
+         self.p_a2, self.p_ph,self.p_selling_price, self.p_linearization_factor, self.p_algorithm, self.p_identifier,
+         self.p_lb, self.p_ub, self.p_tol, self.p_lca_id, self.p_multiobjective, self.p_obj] = parameters.values()
 
         headers_feed_scenario = self.ds.headers_feed_scenario
         self.data_feed_scenario = self.ds.filter_column(self.ds.data_feed_scenario,
@@ -305,10 +309,8 @@ class Model:
                             senses=["G"]
                             )
 
-        # TODO: Put constraint to limit Urea in the diet: sum(x) * DMI <= up_limit
-
         self.constraints_names = diet.get_constraints_names()
-        diet.write_lp(name="file.lp")
+        # diet.write_lp(name="file.lp")
         pass
 
     def _update_model(self):
@@ -326,6 +328,23 @@ class Model:
         self._diet.set_constraint_rhs(seq_of_pairs)
         self._diet.set_objective_function(list(zip(self._var_names_x, self.cost_obj_vector)))
 
+    def _rebuild_model(self, p_cnem):
+        """
+        DO NOT CALL THIS THING OUTSIDE THIS CLASS
+        """
+        try:
+            self.opt_sol = None
+            self._p_cnem = p_cnem
+            self._compute_parameters()
+            if self._diet is None:
+                self._build_model()
+            else:
+                self._update_model()
+            return self._diet
+        except Exception as e:
+            logging.error("An error occurred:\n{}".format(str(e)))
+            return None
+
 
 class ModelLCA(Model):
     headers_lca_scenario: data_handler.Data.LCAScenario = None  # LCA
@@ -333,18 +352,24 @@ class ModelLCA(Model):
     headers_lca_lib: data_handler.Data.LCALib = None  # LCA
     data_lca_lib: pandas.DataFrame = None  # LCA Library
 
-    lca_weights = None  # type: dict
-    lca_values = None  # type: dict
+    lca_weights:dict = None
     lca_cost, methane_eq = None, None  # type: float
-    lca_vector = None  # type: list
-    weight_profit = 1
-    weight_lca = 1
+    lca_vector:list = None
+    lca_obj_vector:list = None
+    weight_profit = None
+    weight_lca = None
+    lca_rhs = None
 
     def _cast_data(self, out_ds, parameters):
         Model._cast_data(self, out_ds, parameters)
         self.headers_lca_scenario = self.ds.headers_lca_scenario
         self.data_lca_scenario = self.ds.filter_column(self.ds.data_lca_scenario, self.ds.headers_lca_scenario.s_ID,
                                                        self.p_lca_id)
+
+        self.weight_lca = list(self.data_lca_scenario[self.ds.headers_lca_scenario.s_LCA_weight])[0]
+        if math.isnan(self.weight_lca):
+            self.weight_lca = 0.0
+            self.weight_profit = 1.0
         self.data_lca_lib = self.ds.filter_column(self.ds.data_lca_lib,
                                                   self.ds.headers_lca_lib.s_ing_id,
                                                   self.ingredient_ids)
@@ -354,25 +379,105 @@ class ModelLCA(Model):
             raise IndexError("LCA Library does not match all ingredients in Feeds")
 
         self.lca_weights = {}
-        for h in self.headers_lca_scenario:
-            # TODO: maybe parametrize this in config.py?
-            if "LCA_" in h:
-                new_h = h.replace("_weight", "")
-                self.lca_weights[new_h] = list(self.data_lca_scenario[h])[0]
+        for h in self.ds.headers_lca_lib:
+            if "LCA" in h:
+                new_h = f'{h}_weight'
+                self.lca_weights[h] = list(self.data_lca_scenario[new_h])[0]
 
         self.lca_cost = list(self.data_lca_scenario[self.ds.headers_lca_scenario.s_LCA_cost])[0]
         if list(self.data_lca_scenario[self.ds.headers_lca_scenario.s_Methane])[0]:
             self.methane_eq = list(self.data_lca_scenario[self.ds.headers_lca_scenario.s_Methane_Equation])[0]
 
-        self.lca_vector = [0 for i in range(self.data_feed_scenario.shape[0])]
-        for i in range(len(self.lca_vector)):
+        self.lca_vector = []
+        for id in self.ingredient_ids:
+            row = self.ds.filter_column(self.data_lca_lib, self.ds.headers_lca_lib.s_ing_id, id)
+            sum_lca = 0
             for lca in self.lca_weights.keys():
-                self.lca_vector[i] += list(self.data_lca_lib[lca])[i] * self.lca_weights[lca]
+                sum_lca += float(list(row[lca])[0]) * self.lca_weights[lca]
+            self.lca_vector.append(sum_lca)
         pass
 
     def _compute_parameters(self):
         Model._compute_parameters(self)
+
+        # Set multi-objective weighted function
+        self.lca_obj_vector = [(-1) * (self._p_dmi * lca) * self.lca_cost for lca in self.lca_vector]
         for i in range(len(self.cost_vector)):
             self.cost_obj_vector[i] = self.cost_obj_vector[i] * self.weight_profit + \
-                                      (-1) * (self._p_dmi * self.lca_vector[i]) * self.lca_cost * self.weight_lca
+                                      + self.lca_obj_vector[i] * self.weight_lca
         pass
+
+    def get_obj_sol(self, solution):
+        # Extract lca and profit(cost, profit/swg) components of the objective function
+        lca_value = 0
+        profit = 0
+        if solution is None:
+            print("ERROR")
+        model = self._rebuild_model(solution['CNEm'])
+        if model is not None:
+            for i, x in enumerate(self._var_names_x):
+                lca_value += solution[x] * self.lca_obj_vector[i]
+                profit += solution[x] * self.cost_obj_vector[i]
+            return [profit, -lca_value/(self.lca_cost * self._p_dmi)]
+        else:
+            raise Exception(f"Could not recreate model:{solution}")
+
+    def set_LCA_rhs(self, val):
+        # Set rhs and removes LCA from objective function
+        self.lca_rhs = val
+        self.set_obj_weights(1.0, 0.0)
+
+    def set_obj_weights(self, f1_w, lca_w):
+        self.weight_profit = f1_w
+        self.weight_lca = lca_w
+
+    def _build_model(self):
+        Model._build_model(self)
+        if self.lca_rhs is None:
+            self.lca_rhs = sum(self.lca_vector)
+        "Constraint: sum(x lca) <= LCA_rhs"
+        self._diet.add_constraint(names=["LCA epsilon"],
+                                  lin_expr=[[self._var_names_x, self.lca_vector]],
+                                  rhs=[self.lca_rhs],
+                                  senses=["L"]
+                                  )
+        self.constraints_names = self._diet.get_constraints_names()
+
+    def write_lp_inside(self, id):
+        self._diet.write_lp(name=f"file_{id}.lp")
+
+    def _update_model(self):
+        """Update RHS values on the model based on the new CNEm and updated parameters"""
+        new_rhs = {
+            "CNEm GE": self._p_cnem * 0.999,
+            "CNEm LE": self._p_cnem * 1.001,
+            "SUM 1": 1,
+            "MPm": self._p_mpm * 0.001 / self._p_dmi,
+            "RDP": 0.125 * self._p_cnem,
+            "Fat": 0.06,
+            "peNDF": self._p_pe_ndf,
+            "LCA epsilon": self.lca_rhs}
+
+        seq_of_pairs = tuple(zip(new_rhs.keys(), new_rhs.values()))
+        self._diet.set_constraint_rhs(seq_of_pairs)
+
+        # seq_of_triplets = tuple(zip(["LCA epsilon" for i in range(self._var_names_x)],
+        #                             self._var_names_x,
+        #                             self.lca_obj_vector))
+        # self._diet.set_constraint_coefficients()
+
+        self._diet.set_objective_function(list(zip(self._var_names_x, self.cost_obj_vector)))
+
+    def _infeasible_output(self, problem_id):
+        # TODO implement the LCA stuff
+        sol_id = {"Problem_ID": self.prefix_id + str(problem_id)}
+        params = dict(zip(["CNEm", "MPm", "DMI", "NEm", "peNDF", "LCA"],
+                          [self._p_cnem, self._p_mpm * 0.001, self._p_dmi, self._p_nem, self._p_pe_ndf, self.lca_rhs]))
+        sol = {**sol_id, **params}
+        self.opt_sol = None
+        # diet.write_lp(f"lp_infeasible_{str(problem_id)}.lp")
+        logging.warning("Infeasible parameters:{}".format(sol))
+        pass
+
+    # def _solve(self, problem_id):
+         # TODO implement LCA prints
