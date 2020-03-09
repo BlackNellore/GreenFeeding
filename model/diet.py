@@ -60,13 +60,13 @@ class Diet:
                 logging.error("Algorithm {} not found, scenario skipped".format(
                     parameters[headers_scenario.s_algorithm]))
                 continue
-            algorithmn = Algorithms[parameters[headers_scenario.s_algorithm]]
+            algorithm = Algorithms[parameters[headers_scenario.s_algorithm]]
             if not multiobjective:
                 logging.info(f'Optimizing with {msg}')
-                optimizer.single_objective(algorithmn, lb, ub, tol)
+                optimizer.single_objective(algorithm, lb, ub, tol, parameters[headers_scenario.s_lca_id])
             else:
-                logging.info(f"Optimizing with multiobjective {chr(949)}-constrained based on {msg}")
-                optimizer.multi_objective(algorithmn, lb, ub, tol)
+                logging.info(f"Optimizing with multiobjective epsilon-constrained based on {msg}")
+                optimizer.multi_objective(algorithm, lb, ub, tol, parameters[headers_scenario.s_lca_id])
 
             logging.info("Saving solution locally")
             status, solution = optimizer.get_results()

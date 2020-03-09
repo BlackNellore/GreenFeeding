@@ -17,7 +17,7 @@ def config():
     if platform.system() in ('Windows', 'Microsoft'):
         highslib = ctypes.cdll.LoadLibrary("./optimizer/resources/highs.dll")
     else:
-        # TODO: Implement call to LINUS .so solver
+        # TODO: Implement call to LINUX .so solver
         raise SystemError("Only windows dll available")
 
     highslib.Highs_call.argtypes = (ctypes.c_int, ctypes.c_int, ctypes.c_int,
@@ -111,6 +111,8 @@ def highs_call(colcost, collower, colupper, rowlower, rowupper, astart, aindex, 
             col_basis, row_basis, ctypes.byref(ctypes.c_int(return_val)))
     except Exception as e:
         logging.error("An error occurred when executing HiGHS, probably infeasible: {}".format(str(e)))
+        if "reading" in e:
+            return None
         return None
     return retcode, list(col_value), list(col_dual), list(row_value), list(row_dual), list(col_basis), list(row_basis)
 
@@ -298,14 +300,19 @@ class Model:
             if self.constraints[cons_tuple[0]]["sense"] == "G":
                 self.constraints[cons_tuple[0]]["lhs"] = cons_tuple[1]
 
+    def set_constraint_sense(self, cst_name, sense):
+        if sense in ["L", "G"]:
+            self.constraints[cst_name]["sense"] = sense
+        else:
+            raise Exception(f"sense {sense} not supported")
+
     def set_constraint_coefficients(self, seq_of_triplets):
         for triplet in seq_of_triplets:
             cst = triplet[0]
             var = triplet[1]
+            index = list(self.constraints[cst]['variables']).index(var)
             val = triplet[2]
-            # self.constraints[cst]["coefficients"]
-            pass
-
+            self.constraints[cst]["coefficients"][index] = val
 
 
     def set_objective_function(self, obj_vec):
