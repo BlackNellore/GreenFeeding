@@ -46,6 +46,8 @@ class Data:
         s_feed_scenario: str
         s_breed: str
         s_sbw: str
+        s_feeding_time: str
+        s_target_weight: str
         s_bcs: str
         s_be: str
         s_l: str
@@ -133,18 +135,27 @@ class Data:
         s_Vit_D: str
         s_Vit_E: str
 
-    # Sheet LCA
+    # Sheet LCA Library
     class LCALib(NamedTuple):
         s_ing_id: str
         s_name: str
-        s_lca_ghg: str
+        s_LCA_phosphorus: str
+        s_LCA_renewable_fossil: str
+        s_LCA_GHG: str
+        s_LCA_acidification: str
+        s_LCA_eutrophication: str
+        s_LCA_land_competition: str
 
-    # Sheet LCA Library
+    # Sheet LCA Scenario
     class LCAScenario(NamedTuple):
         s_ID: str
-        s_LCA_cost: str
         s_LCA_weight: str
+        s_LCA_phosphorus_weight: str
+        s_LCA_renewable_fossil_weight: str
         s_LCA_GHG_weight: str
+        s_LCA_acidification_weight: str
+        s_LCA_eutrophication_weight: str
+        s_LCA_land_competition_weight: str
         s_Methane: str
         s_Methane_Equation: str
 
@@ -273,7 +284,7 @@ class Data:
             else:
                 return resulting_list
         else:
-            ds = data_frame.filter(items=col_name).get_values()
+            ds = data_frame.filter(items=col_name).values
             if ds.shape[0] > 1:
                 return [list(row) for row in list(ds)]
             else:
@@ -287,7 +298,7 @@ class Data:
     @staticmethod
     def match_by_column(data_frame1, data_frame2, col_name):
         """Return intersection of df1 with df2 filtered by column elements"""
-        elements = data_frame2.filter(items=[col_name]).get_values()
+        elements = data_frame2.filter(items=[col_name]).values
         ds = data_frame1.mask(col_name, unwrap_list(elements))
         return ds
 
@@ -298,11 +309,14 @@ class Data:
             logging.warning("NO SOLUTION FOUND, NOTHING TO BE SAVED")
             return
         for sheet_name in results_dict.keys():
-            results = results_dict[sheet_name]
-            if results is None or len(results) == 0:
-                break
-            df = pandas.DataFrame(results)
-            df.to_excel(writer, sheet_name=sheet_name, columns=[*results[0].keys()])
+            try:
+                results = results_dict[sheet_name]
+                if results is None or len(results) == 0:
+                    break
+                df = pandas.DataFrame(results)
+                df.to_excel(writer, sheet_name=sheet_name, columns=[*results[0].keys()])
+            except Exception as e:
+                logging.error(f"Failed to save solution. Problem in sheet {sheet_name}")
         writer.save()
 
     @staticmethod

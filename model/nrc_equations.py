@@ -3,17 +3,27 @@ import numpy as np
 
 class NRC_eq:
     @staticmethod
-    def swg(v_cneg, v_dmi, cnem, v_nem, sbw, linear_factor):
+    def swg(neg, sbw, linear_factor):
         """ Shrunk Weight Gain """
-        return 13.91 * linear_factor * (v_dmi - v_nem/cnem) * v_cneg / np.power(sbw, 0.6836)
+        return 13.91 * linear_factor * neg / np.power(sbw, 0.6836)
 
     @staticmethod
-    def swg_const(v_dmi, cnem, v_nem, sbw, linear_factor):
-        """
-        DEBUG PURPOSES:
-        Constant parameter of SWG equation
-        """
-        return 13.91 * linear_factor * (v_dmi - v_nem / cnem) / np.power(sbw, 0.6836)
+    def cneg(cnem):
+        """ Concentration energy for growth """
+        return 0.8902 * cnem - 0.4359
+
+    @staticmethod
+    def neg(cneg, v_dmi, cnem, v_nem):
+        """ Net energy for growth """
+        return (v_dmi - v_nem/cnem) * cneg
+
+    # @staticmethod
+    # def swg_const(v_dmi, cnem, v_nem, sbw, linear_factor):
+    #     """
+    #     DEBUG PURPOSES:
+    #     Constant parameter of SWG equation
+    #     """
+    #     return 13.91 * linear_factor * (v_dmi - v_nem / cnem) / np.power(sbw, 0.6836)
 
     @staticmethod
     def dmi(cnem, sbw):
@@ -70,7 +80,6 @@ class NRC_eq:
         """Physically Effective Non-Detergent Fiber"""
         return 0.01 * (ph_val - 5.46)/0.038
 
-    # TODO: ch4 emissions
     @staticmethod
     def ch4_diet(fat, cp, NDF, starch, sugars, oa, dmi=1):
         """

@@ -1,9 +1,10 @@
 import numpy as np
 from aenum import Enum
 import logging
-from model.lp_model import Model, ModelLCA
+from model.lp_model import Model, ModelLCA, ModelLCAMultiobjective
 
 Status = Enum('Status', 'EMPTY READY SOLVED ERROR')
+refine_tol = 0.001
 
 
 class Searcher:
@@ -14,7 +15,7 @@ class Searcher:
     _status = Status.EMPTY
     _solutions = None
 
-    def __init__(self, model, obj_func_key="obj_func", pre_id=""):
+    def __init__(self, model, tol=0.01, obj_func_key="obj_func", pre_id=""):
         # if isinstance(model, type(Model)):
         #     error_message = "The parsed model is not acceptable." \
         #                     " Item must be a lpmodel.Model() instance, type found: {0}".format(type(model))
@@ -27,6 +28,8 @@ class Searcher:
         self._status = Status.READY
         self._prefix_id = pre_id
         self._model.prefix_id = pre_id
+        global refine_tol
+        refine_tol = min(refine_tol, tol)
 
     def refine_bounds(self, lb=0.0, ub=1.0, tol=0.01):
         new_lb = self.refine_bound(lb, ub, direction=1, tol=tol)
@@ -40,7 +43,7 @@ class Searcher:
         space = np.linspace(v0, vf, int(np.ceil((vf - v0) / tol)))
         if direction == -1:
             space = reversed(space)
-        new_v = self.__brute_force(self._model.run, space, first_feasible=True)
+        new_v:dict = self.__brute_force(self._model.run, space, first_feasible=True)
         if new_v is None:
             return new_v
         else:
@@ -51,7 +54,7 @@ class Searcher:
         if self._status != Status.READY:
             self.__clear_searcher()
         if uncertain_bounds:
-            lb, ub = self.refine_bounds(lb, ub, 0.001)
+            lb, ub = self.refine_bounds(lb, ub, refine_tol)
             if lb is None:
                 self._status = Status.ERROR
                 return
@@ -91,12 +94,12 @@ class Searcher:
             logging.error("An error occurred in numerical_method.Searcher.__brute_force method: {}".format(e))
             return None
 
-    def golden_section_search(self, lb, ub, p_tol, uncertain_bounds=False):
+    def golden_section_search(self, lb, ub, p_tol, uncertain_bounds=True):
         """Executes golden-section search algorithm"""
         if self._status != Status.READY:
             self.__clear_searcher()
         if uncertain_bounds:
-            lb, ub = self.refine_bounds(lb, ub, 0.001)
+            lb, ub = self.refine_bounds(lb, ub, refine_tol)
             if lb is None:
                 self._status = Status.ERROR
                 return
@@ -151,9 +154,10 @@ class Searcher:
             else:
                 return self.__golden_section_search_recursive(
                     f, c, b, results, p_id+1, tol, h * inv_phi, c=d, fc=fd)
-        except Exception as e:
+        except TypeError as e: # TODO debug
             logging.error("An error occurred in GSS method:\n{}".format(e))
-            return None, None
+            raise e
+            # return None, None
 
     _lca_weight = None
 
@@ -171,7 +175,6 @@ class Searcher:
             for v in forage:
                 self._prefix_id += f", forage = {v}"
                 self.__clear_searcher()
-                self._model.set_lca_weight()
                 self._model.set_forage(v)
                 sol_vec = getattr(self, algorithm)(lb, ub, tol)
                 status, solution = self.get_results(sol_vec, best=False)
@@ -195,8 +198,8 @@ class Searcher:
         self._solutions_multiobjective = []
         if lca_id <= 0:
             logging.error(f"Multi-objective must have valid LCA ID. Check the input spreadsheet. LCA ID = {lca_id}")
-        self._model: ModelLCA = self._model
-        forage = ['G', 'L']
+        self._model: ModelLCAMultiobjective = self._model
+        forage = ['L']
         for v in forage:
             self.__clear_searcher()
             self._model.set_obj_weights(1.0, 0.0)
@@ -209,7 +212,7 @@ class Searcher:
             if solution is None:
                 logging.error(f"Model is infeasible for forage concentration {v} 20%")
                 continue
-            f1_ub, f2_ub = self._model.get_obj_sol(solution)  # get f1_ub, f2_lb
+            f1_ub, f2_ub, cnem_1 = self._model.get_obj_sol(solution)  # get f1_ub, f2_lb
 
             self._model.set_obj_weights(0.0, 1.0)
             self.__clear_searcher()
@@ -218,14 +221,14 @@ class Searcher:
 
             sol_vec = getattr(self, algorithm)(lb, ub, tol, uncertain_bounds=True)  # max f2
             status, solution = self.get_results(sol_vec, best=True)  # get f1_lb, f2_ub
-            f1_lb, f2_lb = self._model.get_obj_sol(solution)  # get f1_l, f2_ub
+            f1_lb, f2_lb, cnem_2 = self._model.get_obj_sol(solution)  # get f1_l, f2_ub
 
             n_vals = int(np.ceil((1 + f2_ub - f2_lb) / tol))
             n_vals = 50  # TODO remove
             lca_rhs_space = np.linspace(f2_lb + 0.0001, f2_ub, n_vals)  # range[f2_lb, f2_ub]
             self._model.set_obj_weights(1.0, 0.0)
             for rhs in lca_rhs_space:
-                self._model.set_LCA_rhs(rhs)
+                self._model.set_lca_rhs(rhs)
                 self.__clear_searcher()
                 self._prefix_id = f"multi objective lb={lb}, ub={ub}, algorithm={algorithm}, rhs={rhs}"
                 self._prefix_id += f", forage = {v}"
@@ -235,7 +238,7 @@ class Searcher:
                 if status == Status.SOLVED:
                     self._solutions_multiobjective.append(solution)
                 else:
-                    raise Exception("Multi-objective failure: Something wrong is going on. numerical_methods.py l182")
+                    raise Exception("Multi-objective failure: Something wrong is going on. numerical_methods.py l238")
             self._solutions += self._solutions_multiobjective
 
     def get_results(self, solution_vec = None, best=False):
@@ -273,6 +276,7 @@ class Searcher:
         self._solutions.clear()
         self._status = Status.READY
         self._model.prefix_id = self._prefix_id
+        # self._model.clear_model()
 
 
 Algorithms = {'BF': 'brute_force_search', 'GSS': 'golden_section_search'}

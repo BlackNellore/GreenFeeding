@@ -100,19 +100,29 @@ def highs_call(colcost, collower, colupper, rowlower, rowupper, astart, aindex, 
     row_dual = dbl_array_type_row(*row_dual)
     col_basis = int_array_type_col(*col_basis)
     row_basis = int_array_type_row(*row_basis)
+    logging.info(f"colcost=[{colcost}\n"
+                 f"collower={collower}\n"
+                 f"colupper={colupper}\n"
+                 f"rowlower={rowlower}\n"
+                 f"rowupper={rowupper}\n"
+                 f"astart={astart}\n"
+                 f"aindex={aindex}\n"
+                 f"avalue={avalue}\n")
     try:
         retcode = highslib.Highs_call(
-            ctypes.c_int(n_col), ctypes.c_int(n_row), ctypes.c_int(n_nz),
+            ctypes.c_int(int(n_col)), ctypes.c_int(int(n_row)), ctypes.c_int(n_nz),
             dbl_array_type_col(*colcost), dbl_array_type_col(*collower), dbl_array_type_col(*colupper),
             dbl_array_type_row(*rowlower), dbl_array_type_row(*rowupper),
             int_array_type_astart(*astart), int_array_type_aindex(*aindex), dbl_array_type_avalue(*avalue),
             col_value, col_dual,
             row_value, row_dual,
             col_basis, row_basis, ctypes.byref(ctypes.c_int(return_val)))
+        print(retcode)
     except Exception as e:
-        logging.error("An error occurred when executing HiGHS, probably infeasible: {}".format(str(e)))
-        if "reading" in e:
-            return None
+        if "writing" in e.args[0]:
+            logging.error("A serious error occurred when executing HiGHS: {}".format(str(e)))
+        else:
+            logging.error("An error occurred when executing HiGHS, probably infeasible: {}".format(str(e)))
         return None
     return retcode, list(col_value), list(col_dual), list(row_value), list(row_dual), list(col_basis), list(row_basis)
 
@@ -193,7 +203,7 @@ class Model:
         self.solution.comp_objective(self.variables)
 
     def _model_check(self):
-        self.colcost, self.collower, self.colupper, self.rowlower,\
+        self.colcost, self.collower, self.colupper, self.rowlower, \
         self.rowupper, self.astart, self.aindex, self.avalue = [[] for i in range(8)]
 
     def _model_compress(self):

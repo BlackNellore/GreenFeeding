@@ -33,23 +33,17 @@ class Diet:
             logging.info("Current Scenario:")
             logging.info("{}".format(parameters))
 
-            logging.info("Initializing model")
-            model = model_factory(ds, parameters, parameters[headers_scenario.s_lca_id])
+            logging.info("Initializing simple model")
+            model = model_factory(ds, parameters,
+                                  parameters[headers_scenario.s_lca_id],
+                                  parameters[headers_scenario.s_multiobjectve])
             logging.info("Initializing numerical methods")
-            optimizer = Searcher(model)
+            [lb, ub, tol] = [parameters[headers_scenario.s_lb],
+                             parameters[headers_scenario.s_ub],
+                             parameters[headers_scenario.s_tol]]
 
-            tol = parameters[headers_scenario.s_tol]
-            logging.info("Refining bounds")
-            lb, ub = optimizer.refine_bounds(parameters[headers_scenario.s_lb],
-                                             parameters[headers_scenario.s_ub],
-                                             tol
-                                             )
+            optimizer = Searcher(model, tol)
 
-            if lb is None or ub is None:
-                logging.warning("There is no feasible solution in the domain {0} <= CNEm <= {1}"
-                                .format(parameters[headers_scenario.s_lb], parameters[headers_scenario.s_ub]))
-                continue
-            logging.info("Refinement completed")
             logging.info("Choosing optimization method")
 
             if parameters[headers_scenario.s_algorithm] == "GSS":
