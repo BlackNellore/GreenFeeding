@@ -78,8 +78,6 @@ class Data:
     class IngredientProperties(NamedTuple):
         s_ID: str
         s_FEED: str
-        s_Cost: str
-        s_IFN: str
         s_Forage: str
         s_DM: str
         s_CP: str
@@ -93,47 +91,10 @@ class Data:
         s_NDF: str
         s_Lignin: str
         s_TDN: str
-        s_ME: str
         s_NEma: str
         s_NEga: str
         s_RUP: str
-        s_kd_PB: str
-        s_kd_CB1: str
-        s_kd_CB2: str
-        s_kd_CB3: str
-        s_PBID: str
-        s_CB1ID: str
-        s_CB2ID: str
         s_pef: str
-        s_ARG: str
-        s_HIS: str
-        s_ILE: str
-        s_LEU: str
-        s_LYS: str
-        s_MET: str
-        s_CYS: str
-        s_PHE: str
-        s_TYR: str
-        s_THR: str
-        s_TRP: str
-        s_VAL: str
-        s_Ca: str
-        s_P: str
-        s_Mg: str
-        s_Cl: str
-        s_K: str
-        s_Na: str
-        s_S: str
-        s_Co: str
-        s_Cu: str
-        s_I: str
-        s_Fe: str
-        s_Mn: str
-        s_Se: str
-        s_Zn: str
-        s_Vit_A: str
-        s_Vit_D: str
-        s_Vit_E: str
 
     # Sheet LCA Library
     class LCALib(NamedTuple):
@@ -158,6 +119,7 @@ class Data:
         s_LCA_land_competition_weight: str
         s_Methane: str
         s_Methane_Equation: str
+        s_Normalize: str
 
     headers_feed_lib: IngredientProperties = None  # Feed Library
     data_feed_lib: pandas.DataFrame = None  # Feed Library

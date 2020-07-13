@@ -86,6 +86,20 @@ class NRC_eq:
         :params fat, cp, NDF, starch, sugars, oa: float
         :return [val_forage>=20%, val_forage<=20%]: list
         """
+        # Conver MJ CH4 to kg CO2eq:  0.056
+        convert = 0.056
+        feed_ge = dmi * 0.2389 * (4.15 * (NDF + starch + sugars + oa) +
+                                  9.4 * fat +
+                                  5.7 * cp) * convert
+        return [(0.065 * feed_ge), (0.03 * feed_ge)]
+
+    @staticmethod
+    def n2o_diet(fat, cp, NDF, starch, sugars, oa, dmi=1):
+        # TODO
+        """
+        :params fat, cp, NDF, starch, sugars, oa: float
+        :return [val_forage>=20%, val_forage<=20%]: list
+        """
         feed_ge = dmi * 0.2389 * (4.15 * (NDF + starch + sugars + oa) +
                                   9.4 * fat +
                                   5.7 * cp)

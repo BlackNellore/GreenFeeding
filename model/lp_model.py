@@ -385,7 +385,7 @@ class ModelLCA(Model):
 
     lca_weights:dict = None
     ghg_cost, methane_eq = None, None  # type: float
-    lca_vector:list = None
+    # lca_vector:list = None
     methane_vector_GE20: list = None
     methane_vector_LE20: list = None
     methane_obj_vector: list = None
@@ -396,6 +396,8 @@ class ModelLCA(Model):
     weight_lca: float = None
     lca_rhs: float = None
     forage_sense: str = None
+    unweighted_lca: dict = None
+    methane_vector: list = None
 
     def _cast_data(self, out_ds, parameters):
         Model._cast_data(self, out_ds, parameters)
@@ -444,30 +446,60 @@ class ModelLCA(Model):
             self.methane_vector_GE20.append(methane_ge20)
             self.methane_vector_LE20.append(methane_le20)
 
-        for id in self.ingredient_ids:
-            row = self.ds.filter_column(self.data_lca_lib, self.ds.headers_lca_lib.s_ing_id, id)
-            sum_lca = 0
+        self.unweighted_lca = self.ds.filter_column(self.data_lca_lib,
+                                                    self.ds.headers_lca_lib.s_ing_id,
+                                                    self.ingredient_ids)
+        # for ing_id in self.ingredient_ids:
+        #     row = self.ds.filter_column(self.data_lca_lib, self.ds.headers_lca_lib.s_ing_id, ing_id)
+        #     sum_lca = 0
+        #     for lca in self.lca_weights.keys():
+        #         sum_lca += float(list(row[lca])[0]) * self.lca_weights[lca]
+        #     self.lca_vector.append(sum_lca)
+
+        # Set multi-objective weighted function
+        self.environmental_impacts = {}
+        # self.weighted_lca = []
+        # for key in self.unweighted_lca:
+        #     self.weighted_lca[key] = self.lca_weights[key] * self.unweighted_lca[key]
+
+        for ing_id in self.ingredient_ids:
+            row = self.ds.filter_column(self.unweighted_lca, self.ds.headers_lca_lib.s_ing_id, ing_id)
+            products = []
             for lca in self.lca_weights.keys():
-                sum_lca += float(list(row[lca])[0]) * self.lca_weights[lca]
-            self.lca_vector.append(sum_lca)
+                products.append(self.lca_weights[lca] * list(row[lca].values)[0])
+            self.environmental_impacts[ing_id] = sum(products)
+
+
         pass
 
     def _compute_parameters(self):
         Model._compute_parameters(self)
 
-        # Set multi-objective weighted function
-        self.lca_obj_vector = [(self._p_dmi * lca) for lca in self.lca_vector]
+        self.lca_obj_vector = [(self._p_dmi * lca * self._model_feeding_time / self._model_final_weight)
+                               for lca in self.environmental_impacts.values()]
 
+        methane_weight = self.lca_weights['LCA_Climate change ILCD (kg CO2 eq)']
+        self.methane_vector = []
         if self.forage_sense == 'L':
-            self.methane_obj_vector = [(self._p_dmi * ch4) for ch4 in self.methane_vector_LE20]
+            self.methane_obj_vector = [(self._p_dmi * ch4 * methane_weight *
+                                        self._model_feeding_time / self._model_final_weight)
+                                       for ch4 in self.methane_vector_LE20]
+            self.methane_vector = [(self._p_dmi * ch4 *
+                                        self._model_feeding_time / self._model_final_weight)
+                                       for ch4 in self.methane_vector_LE20]
         else:
-            self.methane_obj_vector = [(self._p_dmi * ch4) for ch4 in self.methane_vector_GE20]
+            self.methane_obj_vector = [(self._p_dmi * ch4 * methane_weight *
+                                        self._model_feeding_time / self._model_final_weight)
+                                       for ch4 in self.methane_vector_GE20]
+            self.methane_vector = [(self._p_dmi * ch4 * methane_weight *
+                                        self._model_feeding_time / self._model_final_weight)
+                                       for ch4 in self.methane_vector_GE20]
 
         self.constraint_emissions = self.lca_obj_vector.copy()
         for i in range(len(self.lca_obj_vector)):
-            self.lca_obj_vector[i] = self.lca_obj_vector[i] * self._model_feeding_time / self._model_final_weight
-            self.methane_obj_vector[i] = \
-                self.methane_obj_vector[i] * self._model_feeding_time / self._model_final_weight
+            # self.lca_obj_vector[i] = self.lca_obj_vector[i]
+            # self.methane_obj_vector[i] = \
+            #     self.methane_obj_vector[i] * self._model_feeding_time / self._model_final_weight
             self.constraint_emissions[i] = self.lca_obj_vector[i] + self.methane_obj_vector[i]
 
         for i in range(len(self.cost_vector)):
@@ -511,13 +543,18 @@ class ModelLCA(Model):
                                     [var for var in self.lca_obj_vector]))
         sol["Methane Obj"] = 0
         for i in range(len(self._var_names_x)):
-            sol["Methane Obj"] += self.methane_obj_vector[i] * diet.get_solution_vec()[i]
+            sol["Methane Obj"] += self.methane_vector[i] * diet.get_solution_vec()[i]
         sol["LCA Obj"] = lca_cost
         sol["Env Impact Obj"] = lca_cost + sol["Methane Obj"]
         sol["Env Impact weight"] = self.weight_lca
         sol["Profit weight"] = self.weight_profit
         sol["Profit"] = sol["obj_revenue"] - sol["obj_cost"]
         sol["Obj Func"] = sol["Profit"] * sol["Profit weight"] + (-1) * sol["Env Impact weight"] * sol["Env Impact Obj"]
+        for lca in self.lca_weights.keys():
+            lca_ing_list = list(self.unweighted_lca[lca])
+            products = [a * b for a, b in zip(lca_ing_list, diet.get_solution_vec())]
+            lca_val = sum(products)
+            sol[f"LCA - {lca}"] = lca_val * self._p_dmi * self._model_feeding_time / self._model_final_weight
 
         sol = {**sol, **sol_methane_feed, **sol_lca_feed}
         return sol
