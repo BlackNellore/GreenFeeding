@@ -397,6 +397,8 @@ class ModelLCA(Model):
     lca_rhs: float = None
     forage_sense: str = None
     unweighted_lca: dict = None
+    model_unweighted_lca: dict = None
+    normalized_unweighted_lca: dict = None
     methane_vector: list = None
 
     def _cast_data(self, out_ds, parameters):
@@ -449,21 +451,25 @@ class ModelLCA(Model):
         self.unweighted_lca = self.ds.filter_column(self.data_lca_lib,
                                                     self.ds.headers_lca_lib.s_ing_id,
                                                     self.ingredient_ids)
-        # for ing_id in self.ingredient_ids:
-        #     row = self.ds.filter_column(self.data_lca_lib, self.ds.headers_lca_lib.s_ing_id, ing_id)
-        #     sum_lca = 0
-        #     for lca in self.lca_weights.keys():
-        #         sum_lca += float(list(row[lca])[0]) * self.lca_weights[lca]
-        #     self.lca_vector.append(sum_lca)
+        self.model_unweighted_lca = self.unweighted_lca
+        normalize = list(self.data_lca_scenario[self.ds.headers_lca_scenario.s_Normalize])[0]
+        if normalize:
+            self.normalized_unweighted_lca = self.unweighted_lca.copy()
+            normalized_temp = \
+                self.normalized_unweighted_lca[list(self.normalized_unweighted_lca.columns[2::])] / \
+                self.normalized_unweighted_lca[list(self.normalized_unweighted_lca.columns[2::])].max()
+            self.normalized_unweighted_lca[list(self.normalized_unweighted_lca.columns[2::])] = normalized_temp
 
-        # Set multi-objective weighted function
+            self.model_unweighted_lca = self.normalized_unweighted_lca
+
+
         self.environmental_impacts = {}
         # self.weighted_lca = []
         # for key in self.unweighted_lca:
         #     self.weighted_lca[key] = self.lca_weights[key] * self.unweighted_lca[key]
 
         for ing_id in self.ingredient_ids:
-            row = self.ds.filter_column(self.unweighted_lca, self.ds.headers_lca_lib.s_ing_id, ing_id)
+            row = self.ds.filter_column(self.model_unweighted_lca, self.ds.headers_lca_lib.s_ing_id, ing_id)
             products = []
             for lca in self.lca_weights.keys():
                 products.append(self.lca_weights[lca] * list(row[lca].values)[0])
