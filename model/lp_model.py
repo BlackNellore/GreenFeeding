@@ -32,8 +32,8 @@ class Model:
 
     p_id, p_feed_scenario, p_breed, p_sbw, p_feed_time, p_target_weight, \
     p_bcs, p_be, p_l, p_sex, p_a2, p_ph, p_selling_price, \
-    p_linearization_factor, p_algorithm, p_identifier, p_lb, p_ub, p_tol, p_lca_id, p_multiobjective, \
-    p_obj = [None for i in range(22)]
+    p_algorithm, p_identifier, p_lb, p_ub, p_tol, p_lca_id, p_multiobjective, \
+    p_obj = [None for i in range(21)]
 
     _diet = None
     _p_mpm = None
@@ -72,7 +72,9 @@ class Model:
         try:
             self.opt_sol = None
             self._p_cnem = p_cnem
-            self._compute_parameters()
+            if not self._compute_parameters():
+                self._infeasible_output(p_id)
+                return None
             if self._diet is None:
                 self._build_model()
             else:
@@ -110,10 +112,9 @@ class Model:
         sol = dict(zip(diet.get_variable_names(), diet.get_solution_vec()))
         sol["obj_func"] = diet.get_solution_obj()
         sol["obj_cost"] = 0
-        sol["obj_revenue"] = 0
+        sol["obj_revenue"] = self.revenue
         for i in range(len(self._var_names_x)):
             sol["obj_cost"] += diet.get_solution_vec()[i] * self.expenditure_obj_vector[i]
-            sol["obj_revenue"] += diet.get_solution_vec()[i] * self.revenue_obj_vector[i]
 
         params = self._get_params(self._p_swg)
         sol_activity = dict(zip(["{}_act".format(constraint) for constraint in self.constraints_names],
@@ -121,9 +122,9 @@ class Model:
         sol_rhs = dict(zip(["{}_rhs".format(constraint) for constraint in self.constraints_names],
                            diet.get_constraints_rhs(self.constraints_names)))
         sol_red_cost = dict(zip(["{}_red_cost".format(var) for var in diet.get_variable_names()],
-                                diet.get_dual_values()))
+                                diet.get_dual_reduced_costs())) #get dual values
         sol_dual = dict(zip(["{}_dual".format(const) for const in diet.get_constraints_names()],
-                            diet.get_dual_reduced_costs()))
+                            diet.get_dual_values())) # get dual reduced costs
         sol_slack = dict(zip(["{}_slack".format(const) for const in diet.get_constraints_names()],
                              diet.get_dual_linear_slacks()))
         sol = {**sol_id, **params, **sol, **sol_rhs, **sol_activity,
@@ -145,8 +146,26 @@ class Model:
     cost_vector = None
     cost_obj_vector = None
     constraints_names = None
-    revenue_obj_vector = None
+    # revenue_obj_vector = None
+    revenue = None
     expenditure_obj_vector = None
+    dm_af_coversion = None
+    cst_obj = None
+    scenario_parameters = None
+
+    def __set_parameters(self, parameters):
+        if isinstance(parameters, dict):
+            [self.p_id, self.p_feed_scenario, self.p_breed, self.p_sbw, self.p_feed_time,
+             self.p_target_weight,self.p_bcs, self.p_be, self.p_l,
+             self.p_sex, self.p_a2, self.p_ph, self.p_selling_price,
+             self.p_algorithm, self.p_identifier, self.p_lb, self.p_ub,
+             self.p_tol, self.p_lca_id, self.p_multiobjective,self.p_obj] = parameters.values()
+        elif isinstance(parameters, list):
+            [self.p_id, self.p_feed_scenario, self.p_breed, self.p_sbw, self.p_feed_time,
+             self.p_target_weight,self.p_bcs, self.p_be, self.p_l,
+             self.p_sex, self.p_a2, self.p_ph, self.p_selling_price,
+             self.p_algorithm, self.p_identifier, self.p_lb, self.p_ub,
+             self.p_tol, self.p_lca_id, self.p_multiobjective,self.p_obj] = parameters
 
     def _cast_data(self, out_ds, parameters):
         """Retrieve parameters data from table. See data_handler.py for more"""
@@ -155,11 +174,8 @@ class Model:
         self.data_feed_scenario = self.ds.data_feed_scenario
         self.headers_feed_scenario = self.ds.headers_feed_scenario
 
-        [self.p_id, self.p_feed_scenario, self.p_breed, self.p_sbw, self.p_feed_time, self.p_target_weight,
-         self.p_bcs, self.p_be, self.p_l, self.p_sex,
-         self.p_a2, self.p_ph, self.p_selling_price, self.p_linearization_factor, self.p_algorithm,
-         self.p_identifier, self.p_lb, self.p_ub, self.p_tol, self.p_lca_id, self.p_multiobjective,
-         self.p_obj] = parameters.values()
+        self.scenario_parameters = parameters
+        self.__set_parameters(parameters)
 
         headers_feed_scenario = self.ds.headers_feed_scenario
         self.data_feed_scenario = self.ds.filter_column(self.ds.data_feed_scenario,
@@ -181,11 +197,11 @@ class Model:
         self.cost_vector = self.ds.sorted_column(self.data_feed_scenario, headers_feed_scenario.s_feed_cost,
                                                  self.ingredient_ids,
                                                  self.headers_feed_scenario.s_ID)
-        dm_af_coversion = self.ds.sorted_column(self.data_feed_lib, self.headers_feed_lib.s_DM,
+        self.dm_af_coversion = self.ds.sorted_column(self.data_feed_lib, self.headers_feed_lib.s_DM,
                                                 self.ingredient_ids,
                                                 self.headers_feed_lib.s_ID)
-        for i in range(len(self.cost_vector)):
-            self.cost_vector[i] /= dm_af_coversion[i]
+        # for i in range(len(self.cost_vector)):
+        #     self.cost_vector[i] /= self.dm_af_coversion[i]
 
     def _compute_parameters(self):
         """Compute parameters variable with CNEm"""
@@ -195,38 +211,48 @@ class Model:
 
         self._p_cneg = nrc.cneg(self._p_cnem)
         self._p_neg = nrc.neg(self._p_cneg, self._p_dmi, self._p_cnem, self._p_nem)
-        self._p_swg = nrc.swg(self._p_neg, self.p_sbw, self.p_linearization_factor)
-        if math.isnan(self.p_feed_time):
+        if self._p_neg is None:
+            return False
+        self._p_swg = nrc.swg(self._p_neg, self.p_sbw)
+        if math.isnan(self.p_feed_time) or self.p_feed_time == 0:
             self._model_feeding_time = (self.p_target_weight - self.p_sbw)/self._p_swg
             self._model_final_weight = self.p_target_weight
-        elif math.isnan(self.p_target_weight):
+        elif math.isnan(self.p_target_weight) or self.p_target_weight == 0:
             self._model_feeding_time = self.p_feed_time
             self._model_final_weight = self._model_feeding_time * self._p_swg + self.p_sbw
         else:
             raise Exception("target weight and feeding time cannot be defined at the same time")
 
         self.cost_obj_vector = self.cost_vector.copy()
-        self.revenue_obj_vector = self.cost_vector.copy()
+        for i in range(len(self.cost_obj_vector)):
+            self.cost_obj_vector[i] /= self.dm_af_coversion[i]
+
+        self.revenue = self.p_selling_price * (self.p_sbw + self._p_swg * self._model_feeding_time)
+        # self.revenue_obj_vector = self.cost_vector.copy()
         self.expenditure_obj_vector = self.cost_vector.copy()
         for i in range(len(self.cost_vector)):
-            self.revenue_obj_vector[i] = self.p_selling_price * (self.p_sbw + self._p_swg * self._model_feeding_time)
+            # self.revenue_obj_vector[i] = self.p_selling_price * (self.p_sbw + self._p_swg * self._model_feeding_time)
             self.expenditure_obj_vector[i] = self.cost_vector[i] * self._p_dmi * self._model_feeding_time
-        r = [self.revenue_obj_vector[i] - self.expenditure_obj_vector[i] for i in range(len(self.revenue_obj_vector))]
+        # r = [self.revenue_obj_vector[i] - self.expenditure_obj_vector[i] for i in range(len(self.revenue_obj_vector))]
         if self.p_obj == "MaxProfit":
             for i in range(len(self.cost_vector)):
-                self.cost_obj_vector[i] = self.revenue_obj_vector[i] - self.expenditure_obj_vector[i]
+                self.cost_obj_vector[i] = - self.expenditure_obj_vector[i]
+            self.cst_obj = self.revenue
         elif self.p_obj == "MinCost":
             for i in range(len(self.cost_vector)):
                 self.cost_obj_vector[i] = - self.expenditure_obj_vector[i]
+            self.cst_obj = 0
         elif self.p_obj == "MaxProfitSWG":
             for i in range(len(self.cost_vector)):
-                self.cost_obj_vector[i] = (self.revenue_obj_vector[i] -
-                                           self.expenditure_obj_vector[i])/self._p_swg
+                self.cost_obj_vector[i] = -self.expenditure_obj_vector[i]/self._p_swg
+            self.cst_obj = self.revenue/self._p_swg
         elif self.p_obj == "MinCostSWG":
             for i in range(len(self.cost_vector)):
                 self.cost_obj_vector[i] = -(self.expenditure_obj_vector[i])/self._p_swg
+            self.cst_obj = 0
+
         self.cost_obj_vector_mono = self.cost_obj_vector.copy()
-        pass
+        return True
 
     def _build_model(self):
         """Build model (initially based on CPLEX 12.8.1)"""
@@ -249,6 +275,7 @@ class Model:
                                                                   self.ingredient_ids,
                                                                   self.headers_feed_scenario.s_ID),
                                          names=self._var_names_x))
+        diet.set_obj_offset(self.cst_obj)
 
         "Constraint: sum(x a) == CNEm"
         diet.add_constraint(names=["CNEm GE"],
@@ -354,7 +381,8 @@ class Model:
 
         seq_of_pairs = tuple(zip(new_rhs.keys(), new_rhs.values()))
         self._diet.set_constraint_rhs(seq_of_pairs)
-        self._diet.set_objective_function(list(zip(self._var_names_x, self.cost_obj_vector)))
+
+        self._diet.set_objective_function(list(zip(self._var_names_x, self.cost_obj_vector)), self.cst_obj)
 
     def _rebuild_model(self, p_cnem):
         """
@@ -394,12 +422,14 @@ class ModelLCA(Model):
     cost_obj_vector_mono: list = None
     weight_profit: float = None
     weight_lca: float = None
+    weight_co2: float = None
     lca_rhs: float = None
     forage_sense: str = None
     unweighted_lca: dict = None
     model_unweighted_lca: dict = None
     normalized_unweighted_lca: dict = None
     methane_vector: list = None
+    n2o_emission: float = None
 
     def _cast_data(self, out_ds, parameters):
         Model._cast_data(self, out_ds, parameters)
@@ -444,7 +474,8 @@ class ModelLCA(Model):
                                                       feed_properties[self.headers_feed_lib.s_NDF],
                                                       feed_properties[self.headers_feed_lib.s_Starch],
                                                       feed_properties[self.headers_feed_lib.s_Sugars],
-                                                      feed_properties[self.headers_feed_lib.s_OA])
+                                                      feed_properties[self.headers_feed_lib.s_OA],
+                                                      1)
             self.methane_vector_GE20.append(methane_ge20)
             self.methane_vector_LE20.append(methane_le20)
 
@@ -467,6 +498,7 @@ class ModelLCA(Model):
         # self.weighted_lca = []
         # for key in self.unweighted_lca:
         #     self.weighted_lca[key] = self.lca_weights[key] * self.unweighted_lca[key]
+        self.weight_co2 = self.lca_weights['LCA_Climate change ILCD (kg CO2 eq)']
 
         for ing_id in self.ingredient_ids:
             row = self.ds.filter_column(self.model_unweighted_lca, self.ds.headers_lca_lib.s_ing_id, ing_id)
@@ -481,25 +513,26 @@ class ModelLCA(Model):
     def _compute_parameters(self):
         Model._compute_parameters(self)
 
+        self.n2o_emission = nrc.n2o_diet(self._model_final_weight)
+
         self.lca_obj_vector = [(self._p_dmi * lca * self._model_feeding_time / self._model_final_weight)
                                for lca in self.environmental_impacts.values()]
 
-        methane_weight = self.lca_weights['LCA_Climate change ILCD (kg CO2 eq)']
         self.methane_vector = []
         if self.forage_sense == 'L':
-            self.methane_obj_vector = [(self._p_dmi * ch4 * methane_weight *
+            self.methane_obj_vector = [(self._p_dmi * ch4 * self.weight_co2 *
                                         self._model_feeding_time / self._model_final_weight)
                                        for ch4 in self.methane_vector_LE20]
             self.methane_vector = [(self._p_dmi * ch4 *
-                                        self._model_feeding_time / self._model_final_weight)
-                                       for ch4 in self.methane_vector_LE20]
+                                    self._model_feeding_time / self._model_final_weight)
+                                   for ch4 in self.methane_vector_LE20]
         else:
-            self.methane_obj_vector = [(self._p_dmi * ch4 * methane_weight *
+            self.methane_obj_vector = [(self._p_dmi * ch4 * self.weight_co2 *
                                         self._model_feeding_time / self._model_final_weight)
                                        for ch4 in self.methane_vector_GE20]
-            self.methane_vector = [(self._p_dmi * ch4 * methane_weight *
-                                        self._model_feeding_time / self._model_final_weight)
-                                       for ch4 in self.methane_vector_GE20]
+            self.methane_vector = [(self._p_dmi * ch4 *
+                                    self._model_feeding_time / self._model_final_weight)
+                                   for ch4 in self.methane_vector_GE20]
 
         self.constraint_emissions = self.lca_obj_vector.copy()
         for i in range(len(self.lca_obj_vector)):
@@ -511,8 +544,8 @@ class ModelLCA(Model):
         for i in range(len(self.cost_vector)):
             self.cost_obj_vector[i] = self.cost_obj_vector[i] * self.weight_profit + \
                                       + (-1.0) * self.constraint_emissions[i] * self.weight_lca
-
-        pass
+        self.cst_obj = self.revenue * self.weight_profit + \
+                       (-1.0) * self.n2o_emission * self.weight_lca * self.weight_co2
 
     def set_forage(self, ge_or_le):
         self.forage_sense = ge_or_le
@@ -543,19 +576,22 @@ class ModelLCA(Model):
             lca_cost += diet.get_solution_vec()[i] * self.lca_obj_vector[i]
 
         sol["Forage Sense"] = self.forage_sense
-        sol_methane_feed = dict(zip([f"{var}_methane_share" for var in diet.get_variable_names()],
-                                    [var for var in self.methane_obj_vector]))
-        sol_lca_feed = dict(zip([f"{var}_lca_share" for var in diet.get_variable_names()],
-                                    [var for var in self.lca_obj_vector]))
-        sol["Methane Obj"] = 0
+        sol_methane_feed = dict(zip([f"{var}_methane_share [kgCO2eq/kg Animal]" for var in diet.get_variable_names()],
+                                    [var for var in self.methane_vector]))
+        sol_lca_feed = dict(zip([f"{var}_lca_share [per kg animal]" for var in diet.get_variable_names()],
+                                [var for var in self.lca_obj_vector]))
+        sol["Methane Total [kgCO2eq/kg Animal]"] = 0
+        sol["N2O Total [kgCO2eq/kg Animal]"] = self.n2o_emission
         for i in range(len(self._var_names_x)):
-            sol["Methane Obj"] += self.methane_vector[i] * diet.get_solution_vec()[i]
-        sol["LCA Obj"] = lca_cost
-        sol["Env Impact Obj"] = lca_cost + sol["Methane Obj"]
-        sol["Env Impact weight"] = self.weight_lca
-        sol["Profit weight"] = self.weight_profit
+            sol["Methane Total [kgCO2eq/kg Animal]"] += self.methane_vector[i] * diet.get_solution_vec()[i]
+        sol["LCA Obj (weighted LCAs)"] = lca_cost
+        sol["Env Impact Obj (weighted LCAs)"] = lca_cost + sol["Methane Total [kgCO2eq/kg Animal]"] * self.weight_co2 + \
+                                                sol["N2O Total [kgCO2eq/kg Animal]"] * self.weight_co2
+        sol["Env Impact weight (Multi Objective)"] = self.weight_lca
+        sol["Profit weight (Multi Objective)"] = self.weight_profit
         sol["Profit"] = sol["obj_revenue"] - sol["obj_cost"]
-        sol["Obj Func"] = sol["Profit"] * sol["Profit weight"] + (-1) * sol["Env Impact weight"] * sol["Env Impact Obj"]
+        sol["Obj Func"] = sol["Profit"] * sol["Profit weight (Multi Objective)"] \
+                          + (-1) * sol["Env Impact weight (Multi Objective)"] * sol["Env Impact Obj (weighted LCAs)"]
         for lca in self.lca_weights.keys():
             lca_ing_list = list(self.unweighted_lca[lca])
             products = [a * b for a, b in zip(lca_ing_list, diet.get_solution_vec())]

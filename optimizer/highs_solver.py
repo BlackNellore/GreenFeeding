@@ -110,7 +110,7 @@ def highs_call(colcost, collower, colupper, rowlower, rowupper, astart, aindex, 
                  f"avalue={avalue}\n")
     try:
         retcode = highslib.Highs_call(
-            ctypes.c_int(int(n_col)), ctypes.c_int(int(n_row)), ctypes.c_int(n_nz),
+            ctypes.c_int(n_col), ctypes.c_int(n_row), ctypes.c_int(n_nz),
             dbl_array_type_col(*colcost), dbl_array_type_col(*collower), dbl_array_type_col(*colupper),
             dbl_array_type_row(*rowlower), dbl_array_type_row(*rowupper),
             int_array_type_astart(*astart), int_array_type_aindex(*aindex), dbl_array_type_avalue(*avalue),
@@ -178,6 +178,7 @@ class Model:
     rev_cs_map = {}
     solution = None
     sense, variables, constraints, var_lb, var_ub = [None for j in range(5)]
+    objective_offset = 0
 
     def __init__(self):
         self.variables = {}
@@ -203,7 +204,7 @@ class Model:
         self.solution.comp_objective(self.variables)
 
     def _model_check(self):
-        self.colcost, self.collower, self.colupper, self.rowlower, \
+        self.colcost, self.collower, self.colupper, self.rowlower,\
         self.rowupper, self.astart, self.aindex, self.avalue = [[] for i in range(8)]
 
     def _model_compress(self):
@@ -324,6 +325,11 @@ class Model:
             val = triplet[2]
             self.constraints[cst]["coefficients"][index] = val
 
+    def set_objective_offset(self, val):
+        self.objective_offset = val
+
+    def get_objective_offset(self):
+        return self.objective_offset
 
     def set_objective_function(self, obj_vec):
         names = list(self.variables.keys())
@@ -368,7 +374,7 @@ class Model:
         return list(self.solution.variables.values())
 
     def get_solution_obj(self):
-        return self.solution.opt_objective * self.sense
+        return self.solution.opt_objective * self.sense + self.objective_offset
 
     def get_solution_activity_levels(self, constraints):
         activity = []
@@ -377,10 +383,14 @@ class Model:
         return activity
 
     def get_dual_reduced_costs(self):
-        return list(self.solution.reduced_cost)
+        #return list(self.solution.dual_variables) #list(self.solution.reduced_cost)
+        red_costs = []
+        for i in range(len(self.solution.dual_variables)):
+            red_costs.append(- self.solution.dual_variables[i])
+        return red_costs
 
     def get_dual_values(self):
-        return list(self.solution.dual_variables)
+        return list(self.solution.reduced_cost) #list(self.solution.dual_variables)
 
     def get_dual_linear_slacks(self):
         slacks = []

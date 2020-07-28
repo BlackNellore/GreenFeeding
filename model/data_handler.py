@@ -55,7 +55,6 @@ class Data:
         s_a2: str
         s_ph: str
         s_price: str
-        s_linear_factor: str
         s_algorithm: str
         s_identifier: str
         s_lb: str
