@@ -213,12 +213,14 @@ class Model:
         self._p_neg = nrc.neg(self._p_cneg, self._p_dmi, self._p_cnem, self._p_nem)
         if self._p_neg is None:
             return False
-        self._p_swg = nrc.swg(self._p_neg, self.p_sbw)
+        # self._p_swg = nrc.swg(self._p_neg, self.p_sbw, self.p_target_weight)
         if math.isnan(self.p_feed_time) or self.p_feed_time == 0:
-            self._model_feeding_time = (self.p_target_weight - self.p_sbw)/self._p_swg
             self._model_final_weight = self.p_target_weight
+            self._p_swg = nrc.swg(self._p_neg, self.p_sbw, self._model_final_weight)
+            self._model_feeding_time = (self.p_target_weight - self.p_sbw)/self._p_swg
         elif math.isnan(self.p_target_weight) or self.p_target_weight == 0:
             self._model_feeding_time = self.p_feed_time
+            self._p_swg = nrc.swg_time(self._p_neg, self.p_sbw, self._model_feeding_time)
             self._model_final_weight = self._model_feeding_time * self._p_swg + self.p_sbw
         else:
             raise Exception("target weight and feeding time cannot be defined at the same time")
@@ -244,7 +246,7 @@ class Model:
             self.cst_obj = 0
         elif self.p_obj == "MaxProfitSWG":
             for i in range(len(self.cost_vector)):
-                self.cost_obj_vector[i] = -self.expenditure_obj_vector[i]/self._p_swg
+                self.cost_obj_vector[i] = -(self.expenditure_obj_vector[i])/self._p_swg
             self.cst_obj = self.revenue/self._p_swg
         elif self.p_obj == "MinCostSWG":
             for i in range(len(self.cost_vector)):

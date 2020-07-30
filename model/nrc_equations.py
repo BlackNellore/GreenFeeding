@@ -4,10 +4,25 @@ import numpy as np
 class NRC_eq:
 
     @staticmethod
-    def swg(neg, sbw):
+    def swg(neg, sbw, final_weight=0):
         """ Shrunk Weight Gain """
-        NRC_eq.test_negative_values('swg', neg=neg,sbw=sbw)
-        return 13.91 * np.power(neg, 0.9116) / np.power(sbw, 0.6836)
+        NRC_eq.test_negative_values('swg', neg=neg, sbw=sbw, final_weight=final_weight)
+        if final_weight == 0:
+            final_weight = sbw
+        p_sbw = (sbw + final_weight)/2
+        return 13.91 * np.power(neg, 0.9116) / np.power(p_sbw, 0.6836)
+
+    @staticmethod
+    def swg_time(neg, sbw, feeding_time):
+        """ Shrunk Weight Gain """
+        NRC_eq.test_negative_values('swg', neg=neg, sbw=sbw, feeding_time=feeding_time)
+        final_weight = 3.05463 * (-40.9215 + np.power(
+            0.1 * (16745.7 + sbw * (267.93 + 1.07172 * sbw) + 260.259 * np.power(neg, (2279/2500))
+                   * feeding_time), 0.5))
+
+        # swg = NRC_eq.swg(neg, sbw, final_weight)
+        # estimated_feeding_time = (final_weight - sbw) / swg
+        return NRC_eq.swg(neg, sbw, final_weight)
 
     @staticmethod
     def cneg(cnem):
