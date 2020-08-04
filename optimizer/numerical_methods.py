@@ -225,7 +225,7 @@ class Searcher:
 
             n_vals = int(np.ceil((1 + f2_ub - f2_lb) / tol))
             n_vals = 50  # TODO remove
-            lca_rhs_space = np.linspace(f2_lb + 0.0005, f2_ub, n_vals)  # range[f2_lb, f2_ub]
+            lca_rhs_space = np.linspace(f2_lb + tol * 1.5, f2_ub, n_vals)  # range[f2_lb, f2_ub]
             self._model.set_obj_weights(1.0, 0.0)
             for rhs in lca_rhs_space:
                 self._model.set_lca_rhs(rhs)

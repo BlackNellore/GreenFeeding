@@ -60,6 +60,7 @@ class Data:
         s_lb: str
         s_ub: str
         s_tol: str
+        s_dmi_eq: str
         s_lca_id: str
         s_multiobjectve: str
         s_obj: str

@@ -32,8 +32,8 @@ class Model:
 
     p_id, p_feed_scenario, p_breed, p_sbw, p_feed_time, p_target_weight, \
     p_bcs, p_be, p_l, p_sex, p_a2, p_ph, p_selling_price, \
-    p_algorithm, p_identifier, p_lb, p_ub, p_tol, p_lca_id, p_multiobjective, \
-    p_obj = [None for i in range(21)]
+    p_algorithm, p_identifier, p_lb, p_ub, p_tol, p_dmi_eq, p_lca_id, p_multiobjective, \
+    p_obj = [None for i in range(22)]
 
     _diet = None
     _p_mpm = None
@@ -159,13 +159,13 @@ class Model:
              self.p_target_weight,self.p_bcs, self.p_be, self.p_l,
              self.p_sex, self.p_a2, self.p_ph, self.p_selling_price,
              self.p_algorithm, self.p_identifier, self.p_lb, self.p_ub,
-             self.p_tol, self.p_lca_id, self.p_multiobjective,self.p_obj] = parameters.values()
+             self.p_tol, self.p_dmi_eq, self.p_lca_id, self.p_multiobjective,self.p_obj] = parameters.values()
         elif isinstance(parameters, list):
             [self.p_id, self.p_feed_scenario, self.p_breed, self.p_sbw, self.p_feed_time,
              self.p_target_weight,self.p_bcs, self.p_be, self.p_l,
              self.p_sex, self.p_a2, self.p_ph, self.p_selling_price,
              self.p_algorithm, self.p_identifier, self.p_lb, self.p_ub,
-             self.p_tol, self.p_lca_id, self.p_multiobjective,self.p_obj] = parameters
+             self.p_tol, self.p_dmi_eq, self.p_lca_id, self.p_multiobjective,self.p_obj] = parameters
 
     def _cast_data(self, out_ds, parameters):
         """Retrieve parameters data from table. See data_handler.py for more"""
@@ -207,7 +207,7 @@ class Model:
         """Compute parameters variable with CNEm"""
         self._p_mpm, self._p_dmi, self._p_nem, self._p_pe_ndf = \
             nrc.get_all_parameters(self._p_cnem, self.p_sbw, self.p_bcs,
-                                   self.p_be, self.p_l, self.p_sex, self.p_a2, self.p_ph)
+                                   self.p_be, self.p_l, self.p_sex, self.p_a2, self.p_ph, self.p_target_weight, self.p_dmi_eq)
 
         self._p_cneg = nrc.cneg(self._p_cnem)
         self._p_neg = nrc.neg(self._p_cneg, self._p_dmi, self._p_cnem, self._p_nem)
@@ -254,6 +254,7 @@ class Model:
             self.cst_obj = 0
 
         self.cost_obj_vector_mono = self.cost_obj_vector.copy()
+        self.cst_obj_mono = self.cst_obj
         return True
 
     def _build_model(self):
@@ -422,6 +423,7 @@ class ModelLCA(Model):
     constraint_emissions: list = None
     lca_obj_vector: list = None
     cost_obj_vector_mono: list = None
+    cst_obj_mono: float = None
     weight_profit: float = None
     weight_lca: float = None
     weight_co2: float = None
@@ -513,7 +515,8 @@ class ModelLCA(Model):
         pass
 
     def _compute_parameters(self):
-        Model._compute_parameters(self)
+        if not Model._compute_parameters(self):
+            return False
 
         self.n2o_emission = nrc.n2o_diet(self._model_final_weight)
 
@@ -548,6 +551,8 @@ class ModelLCA(Model):
                                       + (-1.0) * self.constraint_emissions[i] * self.weight_lca
         self.cst_obj = self.revenue * self.weight_profit + \
                        (-1.0) * self.n2o_emission * self.weight_lca * self.weight_co2
+
+        return True
 
     def set_forage(self, ge_or_le):
         self.forage_sense = ge_or_le
@@ -615,7 +620,7 @@ class ModelLCAMultiobjective(ModelLCA):
         if model is not None:
             for i, x in enumerate(self._var_names_x):
                 lca_value += solution[x] * self.constraint_emissions[i]
-                profit += solution[x] * self.cost_obj_vector_mono[i]
+                profit += solution[x] * self.cost_obj_vector_mono[i] + self.cst_obj_mono
             return [profit, lca_value, solution['CNEm']]
         else:
             raise Exception(f"Could not recreate model:{solution}")
@@ -667,4 +672,4 @@ class ModelLCAMultiobjective(ModelLCA):
                                         self.constraint_emissions))
             self._diet.set_constraint_coefficients(seq_of_triplets)
 
-        self._diet.set_objective_function(list(zip(self._var_names_x, self.cost_obj_vector)))
+        self._diet.set_objective_function(list(zip(self._var_names_x, self.cost_obj_vector)), self.cst_obj_mono)

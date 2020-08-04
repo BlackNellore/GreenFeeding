@@ -52,10 +52,19 @@ class NRC_eq:
     #     return 13.91 * linear_factor * (v_dmi - v_nem / cnem) / np.power(sbw, 0.6836)
 
     @staticmethod
-    def dmi(cnem, sbw):
+    def dmi(cnem, sbw, final_weight, eq):
         """ Dry Matter Intake """
         NRC_eq.test_negative_values('dmi', cnem=cnem, sbw=sbw)
-        return 0.007259 * sbw * (1.71167 + 2.64747 * cnem - np.power(cnem, 2))
+        if final_weight == 0:
+            final_weight = sbw
+        p_sbw = (sbw + final_weight)/2
+        if eq == "NRC2016":
+            return 0.007259 * p_sbw * (1.71167 + 2.64747 * cnem - np.power(cnem, 2))
+        elif eq == "NRC1996":
+            if cnem < 1:
+                return np.power(p_sbw, 0.75) * (-0.0869 + 0.2435 * cnem - 0.0466 * np.power(cnem, 2)) / 0.95
+            else:
+                return np.power(p_sbw, 0.75) * (-0.0869 + 0.2435 * cnem - 0.0466 * np.power(cnem, 2)) / cnem
 
     @staticmethod
     def mpm(sbw):
@@ -77,9 +86,9 @@ class NRC_eq:
         return np.power(sbw, 0.75) * (0.077 * be * l * (0.8 + 0.05 * (bcs-1) * sex + a2))
 
     @staticmethod
-    def get_all_parameters(cnem, sbw, bcs, be, l, sex, a2, ph_val):
+    def get_all_parameters(cnem, sbw, bcs, be, l, sex, a2, ph_val, target_weight, dmi_eq):
         """Easier way to get all parameters needed on the model at once"""
-        return NRC_eq.mpm(sbw), NRC_eq.dmi(cnem, sbw), NRC_eq.nem(sbw, bcs, be, l, sex, a2), NRC_eq.pe_ndf(ph_val)
+        return NRC_eq.mpm(sbw), NRC_eq.dmi(cnem, sbw, target_weight, dmi_eq), NRC_eq.nem(sbw, bcs, be, l, sex, a2), NRC_eq.pe_ndf(ph_val)
 
     @staticmethod
     def mp(p_dmi=0, p_tdn=0, p_cp=0, p_rup=0, p_forage=0, p_ee=0):

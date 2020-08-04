@@ -28,6 +28,8 @@ class Diet:
         results = {}
         for scenario in data_scenario.values:
             parameters = dict(zip(headers_scenario, scenario))
+            if parameters[headers_scenario.s_id] < 0:
+                continue
             multiobjective = parameters[headers_scenario.s_multiobjectve]
 
             logging.info("Current Scenario:")
