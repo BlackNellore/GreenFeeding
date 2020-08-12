@@ -86,11 +86,11 @@ class Model:
 
     def _get_params(self, p_swg):
         if p_swg is None:
-            return dict(zip(["CNEm", "CNEg", "NEm", "NEg", "DMI", "MPm",  "peNDF"],
+            return dict(zip(["CNEm", "CNEg", "NEm", "NEg", "DMI", "MPm", "peNDF"],
                             [self._p_cnem, self._p_cneg, self._p_nem, self._p_neg,
                              self._p_dmi, self._p_mpm * 0.001, self._p_pe_ndf]))
         else:
-            return dict(zip(["CNEm", "CNEg", "NEm", "NEg", "SWG", "DMI", "MPm",  "peNDF"],
+            return dict(zip(["CNEm", "CNEg", "NEm", "NEg", "SWG", "DMI", "MPm", "peNDF"],
                             [self._p_cnem, self._p_cneg, self._p_nem, self._p_neg, p_swg,
                              self._p_dmi, self._p_mpm * 0.001, self._p_pe_ndf]))
 
@@ -122,9 +122,9 @@ class Model:
         sol_rhs = dict(zip(["{}_rhs".format(constraint) for constraint in self.constraints_names],
                            diet.get_constraints_rhs(self.constraints_names)))
         sol_red_cost = dict(zip(["{}_red_cost".format(var) for var in diet.get_variable_names()],
-                                diet.get_dual_reduced_costs())) #get dual values
+                                diet.get_dual_reduced_costs()))  # get dual values
         sol_dual = dict(zip(["{}_dual".format(const) for const in diet.get_constraints_names()],
-                            diet.get_dual_values())) # get dual reduced costs
+                            diet.get_dual_values()))  # get dual reduced costs
         sol_slack = dict(zip(["{}_slack".format(const) for const in diet.get_constraints_names()],
                              diet.get_dual_linear_slacks()))
         sol = {**sol_id, **params, **sol, **sol_rhs, **sol_activity,
@@ -156,16 +156,16 @@ class Model:
     def __set_parameters(self, parameters):
         if isinstance(parameters, dict):
             [self.p_id, self.p_feed_scenario, self.p_breed, self.p_sbw, self.p_feed_time,
-             self.p_target_weight,self.p_bcs, self.p_be, self.p_l,
+             self.p_target_weight, self.p_bcs, self.p_be, self.p_l,
              self.p_sex, self.p_a2, self.p_ph, self.p_selling_price,
              self.p_algorithm, self.p_identifier, self.p_lb, self.p_ub,
-             self.p_tol, self.p_dmi_eq, self.p_lca_id, self.p_multiobjective,self.p_obj] = parameters.values()
+             self.p_tol, self.p_dmi_eq, self.p_lca_id, self.p_multiobjective, self.p_obj] = parameters.values()
         elif isinstance(parameters, list):
             [self.p_id, self.p_feed_scenario, self.p_breed, self.p_sbw, self.p_feed_time,
-             self.p_target_weight,self.p_bcs, self.p_be, self.p_l,
+             self.p_target_weight, self.p_bcs, self.p_be, self.p_l,
              self.p_sex, self.p_a2, self.p_ph, self.p_selling_price,
              self.p_algorithm, self.p_identifier, self.p_lb, self.p_ub,
-             self.p_tol, self.p_dmi_eq, self.p_lca_id, self.p_multiobjective,self.p_obj] = parameters
+             self.p_tol, self.p_dmi_eq, self.p_lca_id, self.p_multiobjective, self.p_obj] = parameters
 
     def _cast_data(self, out_ds, parameters):
         """Retrieve parameters data from table. See data_handler.py for more"""
@@ -198,8 +198,8 @@ class Model:
                                                  self.ingredient_ids,
                                                  self.headers_feed_scenario.s_ID)
         self.dm_af_coversion = self.ds.sorted_column(self.data_feed_lib, self.headers_feed_lib.s_DM,
-                                                self.ingredient_ids,
-                                                self.headers_feed_lib.s_ID)
+                                                     self.ingredient_ids,
+                                                     self.headers_feed_lib.s_ID)
         # for i in range(len(self.cost_vector)):
         #     self.cost_vector[i] /= self.dm_af_coversion[i]
 
@@ -207,7 +207,8 @@ class Model:
         """Compute parameters variable with CNEm"""
         self._p_mpm, self._p_dmi, self._p_nem, self._p_pe_ndf = \
             nrc.get_all_parameters(self._p_cnem, self.p_sbw, self.p_bcs,
-                                   self.p_be, self.p_l, self.p_sex, self.p_a2, self.p_ph, self.p_target_weight, self.p_dmi_eq)
+                                   self.p_be, self.p_l, self.p_sex, self.p_a2, self.p_ph, self.p_target_weight,
+                                   self.p_dmi_eq)
 
         self._p_cneg = nrc.cneg(self._p_cnem)
         self._p_neg = nrc.neg(self._p_cneg, self._p_dmi, self._p_cnem, self._p_nem)
@@ -217,7 +218,7 @@ class Model:
         if math.isnan(self.p_feed_time) or self.p_feed_time == 0:
             self._model_final_weight = self.p_target_weight
             self._p_swg = nrc.swg(self._p_neg, self.p_sbw, self._model_final_weight)
-            self._model_feeding_time = (self.p_target_weight - self.p_sbw)/self._p_swg
+            self._model_feeding_time = (self.p_target_weight - self.p_sbw) / self._p_swg
         elif math.isnan(self.p_target_weight) or self.p_target_weight == 0:
             self._model_feeding_time = self.p_feed_time
             self._p_swg = nrc.swg_time(self._p_neg, self.p_sbw, self._model_feeding_time)
@@ -246,11 +247,11 @@ class Model:
             self.cst_obj = 0
         elif self.p_obj == "MaxProfitSWG":
             for i in range(len(self.cost_vector)):
-                self.cost_obj_vector[i] = -(self.expenditure_obj_vector[i])/self._p_swg
-            self.cst_obj = self.revenue/self._p_swg
+                self.cost_obj_vector[i] = -(self.expenditure_obj_vector[i]) / self._p_swg
+            self.cst_obj = self.revenue / self._p_swg
         elif self.p_obj == "MinCostSWG":
             for i in range(len(self.cost_vector)):
-                self.cost_obj_vector[i] = -(self.expenditure_obj_vector[i])/self._p_swg
+                self.cost_obj_vector[i] = -(self.expenditure_obj_vector[i]) / self._p_swg
             self.cst_obj = 0
 
         self.cost_obj_vector_mono = self.cost_obj_vector.copy()
@@ -320,7 +321,7 @@ class Model:
 
         diet.add_constraint(names=["MPm"],
                             lin_expr=[[x_vars, mpm_list]],
-                            rhs=[(self._p_mpm + 268 * self._p_swg - 29.4 * self._p_neg)* 0.001 / self._p_dmi],
+                            rhs=[(self._p_mpm + 268 * self._p_swg - 29.4 * self._p_neg) * 0.001 / self._p_dmi],
                             senses=["G"]
                             )
 
@@ -361,6 +362,7 @@ class Model:
                                               self.ingredient_ids,
                                               self.headers_feed_lib.s_ID)[x_index]
                       for x_index in range(len(x_vars))]
+
         diet.add_constraint(names=["peNDF"],
                             lin_expr=[[x_vars, pendf_data]],
                             rhs=[self._p_pe_ndf],
@@ -414,26 +416,31 @@ class ModelLCA(Model):
     headers_lca_lib: data_handler.Data.LCALib = None  # LCA
     data_lca_lib: pandas.DataFrame = None  # LCA Library
 
-    lca_weights:dict = None
+    data_lca_lib_matrix: pandas.DataFrame = None
+
+    env_impact_weights: dict = None
     ghg_cost, methane_eq = None, None  # type: float
     # lca_vector:list = None
     methane_vector_GE20: list = None
     methane_vector_LE20: list = None
     methane_obj_vector: list = None
     constraint_emissions: list = None
-    lca_obj_vector: list = None
     cost_obj_vector_mono: list = None
     cst_obj_mono: float = None
     weight_profit: float = None
     weight_lca: float = None
     weight_co2: float = None
     lca_rhs: float = None
+    stage: float = None
     forage_sense: str = None
-    unweighted_lca: dict = None
-    model_unweighted_lca: dict = None
-    normalized_unweighted_lca: dict = None
-    methane_vector: list = None
+    normalized_data_lca_lib: dict = None
     n2o_emission: float = None
+    normalize: bool = None
+    use_methane: bool = None
+    use_n2o: bool = None
+    normalized_methane_vector_GE20: list = None
+    normalized_methane_vector_LE20: list = None
+    const_time_weight: float = None
 
     def _cast_data(self, out_ds, parameters):
         Model._cast_data(self, out_ds, parameters)
@@ -442,11 +449,8 @@ class ModelLCA(Model):
                                                        self.p_lca_id)
 
         self.weight_lca = list(self.data_lca_scenario[self.ds.headers_lca_scenario.s_LCA_weight])[0]
-        if math.isnan(self.weight_lca):
+        if math.isnan(self.weight_lca) or self.weight_lca < 0:
             self.weight_lca = 0.0
-            self.weight_profit = 1.0
-        if self.weight_lca < 0:
-            self.weight_lca = -self.weight_lca
             self.weight_profit = 1.0
         else:
             self.weight_profit = 1.0 - self.weight_lca
@@ -458,99 +462,90 @@ class ModelLCA(Model):
         self.data_lca_lib = self.ds.sort_df(self.data_lca_lib, self.ds.headers_lca_lib.s_ing_id)
         if self.ingredient_ids != list(self.data_lca_lib[self.ds.headers_lca_lib.s_ing_id]):
             raise IndexError("LCA Library does not match all ingredients in Feeds")
+        self.data_lca_lib_matrix = self.data_lca_lib.copy()
+        self.data_lca_lib_matrix.pop(self.ds.headers_lca_lib.s_ing_id)
+        self.data_lca_lib_matrix.pop(self.ds.headers_lca_lib.s_name)
 
-        self.lca_weights = {}
+        self.env_impact_weights = {}
         for h in self.ds.headers_lca_lib:
             if "LCA" in h:
                 new_h = f'weight_{h}'
-                self.lca_weights[h] = list(self.data_lca_scenario[new_h])[0]
+                self.env_impact_weights[h] = list(self.data_lca_scenario[new_h])[0]
 
-        if list(self.data_lca_scenario[self.ds.headers_lca_scenario.s_Methane])[0]:
+        self.use_methane = list(self.data_lca_scenario[self.ds.headers_lca_scenario.s_Methane])[0]
+        self.use_n2o = list(self.data_lca_scenario[self.ds.headers_lca_scenario.s_N2O])[0]
+        self.normalize = list(self.data_lca_scenario[self.ds.headers_lca_scenario.s_Normalize])[0]
+
+        if self.use_methane:
             self.methane_eq = list(self.data_lca_scenario[self.ds.headers_lca_scenario.s_Methane_Equation])[0]
+            self.lca_vector = []
+            self.methane_vector_GE20 = []
+            self.methane_vector_LE20 = []
+            for i, x in enumerate(self.data_feed_lib.values):
+                feed_properties = self.ds.map_values(list(self.data_feed_lib), x)
+                methane_ge20, methane_le20 = nrc.ch4_diet(feed_properties[self.headers_feed_lib.s_Fat],
+                                                          feed_properties[self.headers_feed_lib.s_CP],
+                                                          feed_properties[self.headers_feed_lib.s_NDF],
+                                                          feed_properties[self.headers_feed_lib.s_Starch],
+                                                          feed_properties[self.headers_feed_lib.s_Sugars],
+                                                          feed_properties[self.headers_feed_lib.s_OA],
+                                                          1)
+                self.methane_vector_GE20.append(methane_ge20)
+                self.methane_vector_LE20.append(methane_le20)
 
-        self.lca_vector = []
-        self.methane_vector_GE20 = []
-        self.methane_vector_LE20 = []
-        for i, x in enumerate(self.data_feed_lib.values):
-            feed_properties = self.ds.map_values(list(self.data_feed_lib), x)
-            methane_ge20, methane_le20 = nrc.ch4_diet(feed_properties[self.headers_feed_lib.s_Fat],
-                                                      feed_properties[self.headers_feed_lib.s_CP],
-                                                      feed_properties[self.headers_feed_lib.s_NDF],
-                                                      feed_properties[self.headers_feed_lib.s_Starch],
-                                                      feed_properties[self.headers_feed_lib.s_Sugars],
-                                                      feed_properties[self.headers_feed_lib.s_OA],
-                                                      1)
-            self.methane_vector_GE20.append(methane_ge20)
-            self.methane_vector_LE20.append(methane_le20)
-
-        self.unweighted_lca = self.ds.filter_column(self.data_lca_lib,
-                                                    self.ds.headers_lca_lib.s_ing_id,
-                                                    self.ingredient_ids)
-        self.model_unweighted_lca = self.unweighted_lca
-        normalize = list(self.data_lca_scenario[self.ds.headers_lca_scenario.s_Normalize])[0]
-        if normalize:
-            self.normalized_unweighted_lca = self.unweighted_lca.copy()
-            normalized_temp = \
-                self.normalized_unweighted_lca[list(self.normalized_unweighted_lca.columns[2::])] / \
-                self.normalized_unweighted_lca[list(self.normalized_unweighted_lca.columns[2::])].max()
-            self.normalized_unweighted_lca[list(self.normalized_unweighted_lca.columns[2::])] = normalized_temp
-
-            self.model_unweighted_lca = self.normalized_unweighted_lca
-
-
-        self.environmental_impacts = {}
-        # self.weighted_lca = []
-        # for key in self.unweighted_lca:
-        #     self.weighted_lca[key] = self.lca_weights[key] * self.unweighted_lca[key]
-        self.weight_co2 = self.lca_weights['LCA_Climate change ILCD (kg CO2 eq)']
-
-        for ing_id in self.ingredient_ids:
-            row = self.ds.filter_column(self.model_unweighted_lca, self.ds.headers_lca_lib.s_ing_id, ing_id)
-            products = []
-            for lca in self.lca_weights.keys():
-                products.append(self.lca_weights[lca] * list(row[lca].values)[0])
-            self.environmental_impacts[ing_id] = sum(products)
-
-
-        pass
+    @staticmethod
+    def __normalise(vector):
+        if isinstance(vector, list):
+            return [(vector[i] - min(vector)) / (max(vector) - min(vector)) for i in range(len(vector))]
+        elif isinstance(vector, pandas.DataFrame):
+            for col in vector.columns:
+                temp = vector[col]
+                temp = (temp - temp.min()) / (temp.max() - temp.min())
+                vector[col] = temp
+            return vector
+        raise Exception('Invalid format parsed to normaliser: lp_model l501')
 
     def _compute_parameters(self):
         if not Model._compute_parameters(self):
             return False
 
-        self.n2o_emission = nrc.n2o_diet(self._model_final_weight)
-
-        self.lca_obj_vector = [(self._p_dmi * lca * self._model_feeding_time / self._model_final_weight)
-                               for lca in self.environmental_impacts.values()]
-
-        self.methane_vector = []
-        if self.forage_sense == 'L':
-            self.methane_obj_vector = [(self._p_dmi * ch4 * self.weight_co2 *
-                                        self._model_feeding_time / self._model_final_weight)
-                                       for ch4 in self.methane_vector_LE20]
-            self.methane_vector = [(self._p_dmi * ch4 *
-                                    self._model_feeding_time / self._model_final_weight)
-                                   for ch4 in self.methane_vector_LE20]
+        if self.use_n2o:
+            n2o_eq = list(self.data_lca_scenario[self.ds.headers_lca_scenario.s_N2O_Equation])[0]
+            self.n2o_emission = \
+                nrc.n2o_diet(self._model_final_weight, n2o_eq) * self._model_feeding_time / self._model_final_weight
         else:
-            self.methane_obj_vector = [(self._p_dmi * ch4 * self.weight_co2 *
-                                        self._model_feeding_time / self._model_final_weight)
-                                       for ch4 in self.methane_vector_GE20]
-            self.methane_vector = [(self._p_dmi * ch4 *
-                                    self._model_feeding_time / self._model_final_weight)
-                                   for ch4 in self.methane_vector_GE20]
+            self.n2o_emission = 0
 
-        self.constraint_emissions = self.lca_obj_vector.copy()
-        for i in range(len(self.lca_obj_vector)):
-            # self.lca_obj_vector[i] = self.lca_obj_vector[i]
-            # self.methane_obj_vector[i] = \
-            #     self.methane_obj_vector[i] * self._model_feeding_time / self._model_final_weight
-            self.constraint_emissions[i] = self.lca_obj_vector[i] + self.methane_obj_vector[i]
+        self.const_time_weight = (self._p_dmi * self._model_feeding_time / self._model_final_weight)
+        env_impact_cst_fo = 0
+        env_impact_matrix = self.data_lca_lib_matrix.copy()
+
+        if self.use_methane:
+            if self.forage_sense == 'L':
+                env_impact_matrix[self.ds.headers_lca_lib.s_LCA_GHG] = \
+                    env_impact_matrix[self.ds.headers_lca_lib.s_LCA_GHG] + self.methane_vector_LE20
+            else:
+                env_impact_matrix[:, self.ds.headers_lca_lib.s_LCA_GHG] = \
+                    env_impact_matrix[:, self.ds.headers_lca_lib.s_LCA_GHG] + self.methane_vector_GE20
+        if self.normalize:
+            normalized_temp = self.__normalise(env_impact_matrix)
+            env_impact_matrix = normalized_temp
+
+        s = pandas.Series(self.env_impact_weights)
+        env_impact_vector = env_impact_matrix.dot(s)
+        env_impact_vector = env_impact_vector * self.const_time_weight
+
+        self.constraint_emissions = env_impact_vector.copy()
+        self.constraint_emissions_constant = \
+            self.n2o_emission * self.env_impact_weights[self.ds.headers_lca_lib.s_LCA_GHG]
+
+        self.weight_co2 = self.env_impact_weights[self.ds.headers_lca_lib.s_LCA_GHG]
 
         for i in range(len(self.cost_vector)):
             self.cost_obj_vector[i] = self.cost_obj_vector[i] * self.weight_profit + \
                                       + (-1.0) * self.constraint_emissions[i] * self.weight_lca
         self.cst_obj = self.revenue * self.weight_profit + \
-                       (-1.0) * self.n2o_emission * self.weight_lca * self.weight_co2
+                       (-1.0) * self.constraint_emissions_constant * self.weight_lca
 
         return True
 
@@ -574,39 +569,55 @@ class ModelLCA(Model):
         self._diet.write_lp(name=f"file_{id}.lp")
 
     def _solve(self, problem_id):
-        sol = Model._solve(self, problem_id)
-        if sol is None:
-            return None
-        diet = self._diet
-        lca_cost = 0
-        for i, x in enumerate(self._var_names_x):
-            lca_cost += diet.get_solution_vec()[i] * self.lca_obj_vector[i]
+        try:
+            sol = Model._solve(self, problem_id)
+            if sol is None:
+                return None
+            diet = self._diet
 
-        sol["Forage Sense"] = self.forage_sense
-        sol_methane_feed = dict(zip([f"{var}_methane_share [kgCO2eq/kg Animal]" for var in diet.get_variable_names()],
-                                    [var for var in self.methane_vector]))
-        sol_lca_feed = dict(zip([f"{var}_lca_share [per kg animal]" for var in diet.get_variable_names()],
-                                [var for var in self.lca_obj_vector]))
-        sol["Methane Total [kgCO2eq/kg Animal]"] = 0
-        sol["N2O Total [kgCO2eq/kg Animal]"] = self.n2o_emission
-        for i in range(len(self._var_names_x)):
-            sol["Methane Total [kgCO2eq/kg Animal]"] += self.methane_vector[i] * diet.get_solution_vec()[i]
-        sol["LCA Obj (weighted LCAs)"] = lca_cost
-        sol["Env Impact Obj (weighted LCAs)"] = lca_cost + sol["Methane Total [kgCO2eq/kg Animal]"] * self.weight_co2 + \
-                                                sol["N2O Total [kgCO2eq/kg Animal]"] * self.weight_co2
-        sol["Env Impact weight (Multi Objective)"] = self.weight_lca
-        sol["Profit weight (Multi Objective)"] = self.weight_profit
-        sol["Profit"] = sol["obj_revenue"] - sol["obj_cost"]
-        sol["Obj Func"] = sol["Profit"] * sol["Profit weight (Multi Objective)"] \
-                          + (-1) * sol["Env Impact weight (Multi Objective)"] * sol["Env Impact Obj (weighted LCAs)"]
-        for lca in self.lca_weights.keys():
-            lca_ing_list = list(self.unweighted_lca[lca])
-            products = [a * b for a, b in zip(lca_ing_list, diet.get_solution_vec())]
-            lca_val = sum(products)
-            sol[f"LCA - {lca}"] = lca_val * self._p_dmi * self._model_feeding_time / self._model_final_weight
+            sol["Forage Sense"] = self.forage_sense
 
-        sol = {**sol, **sol_methane_feed, **sol_lca_feed}
-        return sol
+            lca_cost = 0
+            for i, x in enumerate(self._var_names_x):
+                lca_cost += diet.get_solution_vec()[i] * self.constraint_emissions[i]
+
+            sol["EI Obj (weighted impacts)"] = lca_cost
+
+            sol_methane_feed = {}
+            if self.use_methane:
+                if self.forage_sense == "L":
+                    methane_vector = self.methane_vector_LE20
+                else:
+                    methane_vector = self.methane_vector_GE20
+                #     sol_methane_feed = dict(
+                #         zip([f"{var}_methane_share [kgCO2eq/kg Animal]" for var in diet.get_variable_names()],
+                #             [var for var in methane_vector]))
+                #
+                # sol_lca_feed = dict(zip([f"{var}_lca_share [per kg animal]" for var in diet.get_variable_names()],
+                #                         [var for var in ]))
+                sol["Methane Total [kgCO2eq/kg Animal]"] = 0
+                sol["N2O Total [kgCO2eq/kg Animal]"] = self.n2o_emission
+                for i in range(len(self._var_names_x)):
+                    sol["Methane Total [kgCO2eq/kg Animal]"] += methane_vector[i] * diet.get_solution_vec()[i] * \
+                                                                self.const_time_weight
+            lca_vals = (self.data_lca_lib_matrix.T).dot(diet.get_solution_vec()) * self.const_time_weight
+            for lca in self.env_impact_weights.keys():
+                sol[f"LCA emited/kg Animal - {lca}"] = lca_vals[lca]
+            if self.stage is None:
+                self.stage = self.weight_lca
+            sol["Env Impact weight (Multi Objective)"] = self.stage
+            sol["Profit weight (Multi Objective)"] = 1 - self.stage
+            sol["Profit"] = sol["obj_revenue"] - sol["obj_cost"]
+            sol["Obj Func [weighthed objs]"] = sol["Profit"] * sol["Profit weight (Multi Objective)"] + \
+                                               (-1) * sol["Env Impact weight (Multi Objective)"] * sol[
+                                                   "EI Obj (weighted impacts)"]
+
+            # sol = {**sol, **sol_methane_feed, **sol_lca_feed}
+            sol = {**sol, **sol_methane_feed}
+            return sol
+        except Exception as e:
+            logging.error(f"An error occurred writing the solution on ln584:\n{str(e)}")
+            raise e
 
 
 class ModelLCAMultiobjective(ModelLCA):
@@ -621,13 +632,15 @@ class ModelLCAMultiobjective(ModelLCA):
             for i, x in enumerate(self._var_names_x):
                 lca_value += solution[x] * self.constraint_emissions[i]
                 profit += solution[x] * self.cost_obj_vector_mono[i] + self.cst_obj_mono
+            lca_value += self.constraint_emissions_constant
             return [profit, lca_value, solution['CNEm']]
         else:
             raise Exception(f"Could not recreate model:{solution}")
 
-    def set_lca_rhs(self, val):
+    def set_lca_rhs(self, val, stage):
         # Set rhs and removes LCA from objective function
         self.lca_rhs = val
+        self.stage = stage
         self.set_obj_weights(1.0, 0.0)
 
     def set_obj_weights(self, f1_w, lca_w):
@@ -638,7 +651,7 @@ class ModelLCAMultiobjective(ModelLCA):
         ModelLCA._build_model(self)
 
         if self.lca_rhs is None:
-            self.lca_rhs = sum(self.constraint_emissions)
+            self.lca_rhs = sum(self.constraint_emissions) + self.constraint_emissions_constant
 
         "Constraint: sum(x lca) <= LCA_rhs"
         self._diet.add_constraint(names=["LCA epsilon"],
@@ -659,7 +672,7 @@ class ModelLCAMultiobjective(ModelLCA):
             "RDP": 0.125 * self._p_cnem,
             "Fat": 0.06,
             "peNDF": self._p_pe_ndf,
-            "LCA epsilon": self.lca_rhs}
+            "LCA epsilon": self.lca_rhs - self.constraint_emissions_constant}
 
         seq_of_pairs = tuple(zip(new_rhs.keys(), new_rhs.values()))
         self._diet.set_constraint_rhs(seq_of_pairs)

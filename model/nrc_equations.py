@@ -166,13 +166,16 @@ class NRC_eq:
         return [(0.065 * feed_ge), (0.03 * feed_ge)]
 
     @staticmethod
-    def n2o_diet(animal_final_weight):
+    def n2o_diet(animal_final_weight, n2o_eq):
         # IPCC Tier 1
         # 300kg CO2eq/ kg N2O
         # 0.33 [kg Nex/Mg animal]
         # animal[kg]/1000 [Mg]
         # 0.02 [kg N2O/kg Nex]
-        return 0.02 * 0.33 * animal_final_weight * 300 / 1000
+        if n2o_eq == "IPCC2006":
+            return 0.02 * 0.33 * animal_final_weight * 300 / 1000
+        else:
+            return 0.02 * 0.33 * animal_final_weight * 300 / 1000
 
 
 if __name__ == "__main__":

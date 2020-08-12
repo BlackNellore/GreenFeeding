@@ -119,6 +119,8 @@ class Data:
         s_LCA_land_competition_weight: str
         s_Methane: str
         s_Methane_Equation: str
+        s_N2O: str
+        s_N2O_Equation: str
         s_Normalize: str
 
     headers_feed_lib: IngredientProperties = None  # Feed Library
