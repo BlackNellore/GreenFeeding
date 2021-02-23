@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RNSSettings xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <UserSettings>
+    <_passCode />
+    <MacAddress>00155D34DD4C</MacAddress>
+    <Language>English</Language>
+    <FormFarm_Height>567</FormFarm_Height>
+    <FormFarm_Width>680</FormFarm_Width>
+    <FormFarm_Top>0</FormFarm_Top>
+    <FormFarm_Left>0</FormFarm_Left>
+    <FormMdi_Height>720</FormMdi_Height>
+    <FormMdi_Width>1033</FormMdi_Width>
+    <FormMdi_Top>0</FormMdi_Top>
+    <FormMdi_Left>0</FormMdi_Left>
+    <FormFeeds_Height>620</FormFeeds_Height>
+    <FormFeeds_Width>900</FormFeeds_Width>
+    <FormFeeds_Top>0</FormFeeds_Top>
+    <FormFeeds_Left>0</FormFeeds_Left>
+    <FormRation_Height>420</FormRation_Height>
+    <FormRation_Width>353</FormRation_Width>
+    <FormRation_Top>0</FormRation_Top>
+    <FormRation_Left>0</FormRation_Left>
+    <FormMap_Height>387</FormMap_Height>
+    <FormMap_Width>353</FormMap_Width>
+    <FormMap_Top>0</FormMap_Top>
+    <FormMap_Left>0</FormMap_Left>
+    <FormReports_Height>333</FormReports_Height>
+    <FormReports_Width>333</FormReports_Width>
+    <FormReports_Top>0</FormReports_Top>
+    <FormReports_Left>0</FormReports_Left>
+    <DecimalPrecision>2</DecimalPrecision>
+    <ShowMixIngredients>false</ShowMixIngredients>
+    <showToolbar>true</showToolbar>
+    <AutoSave required="false" interval="0" />
+    <AutoSelect>true</AutoSelect>
+    <OpenLastFile>false</OpenLastFile>
+    <LastFileName />
+    <RecentFiles>
+      <File>
+        <FileName>Untitled3.RNS</FileName>
+        <FileLocation>C:\Users\s1896157\Documents\TAMU\RNS Files\Simulations\Untitled3.RNS</FileLocation>
+        <LastAccessed>26/11/2020 20:20:22</LastAccessed>
+      </File>
+      <File>
+        <FileName>Untitled1.RNS</FileName>
+        <FileLocation>C:\Users\s1896157\Documents\TAMU\RNS Files\Simulations\Untitled1.RNS</FileLocation>
+        <LastAccessed>28/11/2020 18:06:24</LastAccessed>
+      </File>
+      <File>
+        <FileName>Default_Scenario.RNS</FileName>
+        <FileLocation>C:\Users\s1896157\OneDrive - University of Edinburgh\Gabriel\Models\EMB_MaxProfitDiet\Default_Scenario.RNS</FileLocation>
+        <LastAccessed>28/11/2020 18:10:48</LastAccessed>
+      </File>
+    </RecentFiles>
+    <AdjFactorTDN>100</AdjFactorTDN>
+    <RationPercentageAdjustOption>MANUAL</RationPercentageAdjustOption>
+  </UserSettings>
+</RNSSettings>

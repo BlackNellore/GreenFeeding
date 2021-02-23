@@ -53,7 +53,7 @@ class Optimizer:
         :param kwargs : {"sense":["max", "min"]}
                 Defines objective direction
         """
-
+        
         if SOLVER == "CPLEX":
             option = {"max": self.model.objective.sense.maximize,
                       "min": self.model.objective.sense.minimize}
@@ -67,7 +67,7 @@ class Optimizer:
         :param kwargs : CPLEX{"obj":list, "lb": list, "ub": list, "names": list}
                 Defines variables
         """
-
+        
         if SOLVER == "CPLEX":
             variables = self.model.variables.add(obj=kwargs["obj"],
                                                  lb=kwargs["lb"],
@@ -87,7 +87,7 @@ class Optimizer:
         :param kwargs : CPLEX{"names":list, "lin_expr": list, "rhs": list, "senses": list}
                 Create constraint
         """
-
+        
         if SOLVER == "CPLEX":
             self.model.linear_constraints.add(names=kwargs["names"],
                                               lin_expr=kwargs["lin_expr"],
@@ -113,7 +113,6 @@ class Optimizer:
          constraint name and new sense (L or G)
         """
         if SOLVER == "CPLEX":
-            # TODO untested
             self.model.linear_constraints.set_senses(cst_name, sense)
         elif SOLVER == "HiGHS":
             self.model.set_constraint_sense(cst_name, sense)
@@ -122,7 +121,7 @@ class Optimizer:
         """
         :param seq_of_pairs: tuple with constraint names and values
         """
-
+        
         if SOLVER == "CPLEX":
             self.model.linear_constraints.set_rhs(seq_of_pairs)
         elif SOLVER == "HiGHS":
@@ -141,7 +140,7 @@ class Optimizer:
         """
         :param objective_vector: list with floats
         """
-
+        
         if SOLVER == "CPLEX":
             self.model.objective.set_linear(objective_vector)
         elif SOLVER == "HiGHS":
@@ -185,7 +184,7 @@ class Optimizer:
 
     def solve(self):
         """Solve self.model"""
-
+        
         if SOLVER == "CPLEX":
             self.model.solve()
         elif SOLVER == "HiGHS":
@@ -194,7 +193,7 @@ class Optimizer:
 
     def feasopt(self):
         """Relax the constraints"""
-
+        
         if SOLVER == "CPLEX":
             self.model.feasopt.linear_constraints()
         elif SOLVER == "HiGHS":
@@ -205,7 +204,7 @@ class Optimizer:
 
     def get_solution_status(self):
         """Status Solution"""
-
+        
         if SOLVER == "CPLEX":
             return self.model.solution.get_status_string()
         elif SOLVER == "HiGHS":
@@ -216,7 +215,7 @@ class Optimizer:
         """Solution vector respective to the variables
         :rtype: list
         """
-
+        
         if SOLVER == "CPLEX":
             return self.model.solution.get_values()
         elif SOLVER == "HiGHS":
@@ -228,7 +227,7 @@ class Optimizer:
         :return: objective function value after solve
         :rtype: float
         """
-
+        
         if SOLVER == "CPLEX":
             return self.model.solution.get_objective_value()
         elif SOLVER == "HiGHS":
@@ -240,7 +239,7 @@ class Optimizer:
         :type constraints: list with constraint names
         :return: float, objective function value after solve
         """
-
+        
         if SOLVER == "CPLEX":
             return self.model.solution.get_activity_levels(constraints)
         elif SOLVER == "HiGHS":
@@ -252,7 +251,7 @@ class Optimizer:
         """
         :return: list, reduced costs
         """
-
+        
         if SOLVER == "CPLEX":
             return self.model.solution.get_reduced_costs()
         elif SOLVER == "HiGHS":
@@ -263,7 +262,7 @@ class Optimizer:
         """
         :return: list, dual variables values
         """
-
+        
         if SOLVER == "CPLEX":
             return self.model.solution.get_dual_values()
         elif SOLVER == "HiGHS":
@@ -274,7 +273,7 @@ class Optimizer:
         """
         :return: list, linear slacks of constraints
         """
-
+        
         if SOLVER == "CPLEX":
             return self.model.solution.get_linear_slacks()
         elif SOLVER == "HiGHS":
@@ -288,7 +287,7 @@ class Optimizer:
         :type kwargs:[str, str]
         :return: void, write lp self.model in txt file
         """
-
+        
         if SOLVER == "CPLEX":
             self.model.write(kwargs["name"])
         elif SOLVER == "HiGHS":
@@ -300,7 +299,7 @@ class Optimizer:
         :type file_name: str
         :return: void, write solution in xml file
         """
-
+        
         if SOLVER == "CPLEX":
             self.model.solution.write(file_name)
         elif SOLVER == "HiGHS":

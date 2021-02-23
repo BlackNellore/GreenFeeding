@@ -17,7 +17,6 @@ def config():
     if platform.system() in ('Windows', 'Microsoft'):
         highslib = ctypes.cdll.LoadLibrary("./optimizer/resources/highs.dll")
     else:
-        # TODO: Implement call to LINUX .so solver
         raise SystemError("Only windows dll available")
 
     highslib.Highs_call.argtypes = (ctypes.c_int, ctypes.c_int, ctypes.c_int,
@@ -388,7 +387,7 @@ class Model:
         for i in range(len(self.solution.dual_variables)):
             red_costs.append(- self.solution.dual_variables[i])
         return red_costs
-
+        
     def get_dual_values(self):
         return list(self.solution.reduced_cost) #list(self.solution.dual_variables)
 

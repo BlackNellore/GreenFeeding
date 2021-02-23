@@ -10,6 +10,7 @@ if __name__ == "__main__":
                         level=logging.DEBUG,
                         filemode="w",
                         format=fmt_str)
+
     diet_opt = diet.Diet()
     diet_opt.initialize("Starting diet.py")
     diet_opt.run()

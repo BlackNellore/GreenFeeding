@@ -1,4 +1,3 @@
-from optimizer import optimizer
-from config import *
-
-optimizer.config(SOLVER)
+# from config import *
+#
+# global SOLVER
