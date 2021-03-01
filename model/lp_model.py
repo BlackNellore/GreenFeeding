@@ -389,8 +389,8 @@ class Model:
 
         if self.parameters.p_obj == "MaxProfit" or self.parameters.p_obj == "MinCost":
             for i in self.data.ingredient_ids:
-                self.computed.dc_expenditure[i] = - self.data.dc_cost[
-                    i] * self.parameters.dmi * self.parameters.c_model_feeding_time / \
+                self.computed.dc_expenditure[i] =\
+                    - self.data.dc_cost[i] * self.parameters.dmi * self.parameters.c_model_feeding_time / \
                                                   self.data.dc_dm_af_conversion[i]
         elif self.parameters.p_obj == "MaxProfitSWG" or self.parameters.p_obj == "MinCostSWG":
             for i in self.data.ingredient_ids:
@@ -551,7 +551,7 @@ class ModelReducedCost(Model):
         return self._special_cost
 
     def get_special_id(self):
-        return self._special_id
+        return self._special_id, self.data.d_name_ing_map[self._special_id]
 
 
 class ModelLCA(Model):

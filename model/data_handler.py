@@ -253,6 +253,8 @@ class Data:
         self.batch_map = dict(zip(list_batch_id, [None] * batch_scenarios.shape[0]))
 
         for batch_id in self.batch_map.keys():
+            if batch_id <= 0:
+                continue
             self.batch_map[batch_id] = {"data_feed_scenario": {}, "data_scenario": {}}
             batch_data_feed_scenario = {}
             row = self.filter_column(batch_scenarios,
@@ -260,7 +262,7 @@ class Data:
                                      batch_id,
                                      int64=True)
             feed_scn = list(row[self.headers_scenario.s_feed_scenario])[0]
-            batch_id = list(row[self.headers_scenario.s_batch])[0]
+            batch_ids = list(row[self.headers_scenario.s_batch])[0]
             subset_feed = self.filter_column(batch_feed_scenarios,
                                              self.headers_feed_scenario.s_feed_scenario,
                                              feed_scn,
