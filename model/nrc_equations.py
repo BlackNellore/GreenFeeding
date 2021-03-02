@@ -66,7 +66,6 @@ class NRC_abs(metaclass=abc.ABCMeta):
 
 
 class NRC_eq:
-
     outside_calc = False
     diff_report = False
 
@@ -148,13 +147,13 @@ class NRC_eq:
             diff_perc = rdata / equations - 1
             if abs(diff_perc) > 0.1:
                 if abs(diff_perc) > 0.7:
-                    logging.error(f'{name} Rdata diff eq: {diff:.2f}\t {diff_perc*100:.2f}%\t\t\t'
+                    logging.error(f'{name} Rdata diff eq: {diff:.2f}\t {diff_perc * 100:.2f}%\t\t\t'
                                   f'Rdata val({rdata:.2f})\tEquations val({equations:.2f})')
                 else:
-                    logging.warning(f'{name} Rdata diff eq: {diff:.2f}\t {diff_perc*100:.2f}%\t\t\t'
+                    logging.warning(f'{name} Rdata diff eq: {diff:.2f}\t {diff_perc * 100:.2f}%\t\t\t'
                                     f'Rdata val({rdata:.2f})\tEquations val({equations:.2f})')
             else:
-                logging.info(f'{name} Rdata diff eq: {diff:.2f}\t {diff_perc*100:.2f}%\t\t\t'
+                logging.info(f'{name} Rdata diff eq: {diff:.2f}\t {diff_perc * 100:.2f}%\t\t\t'
                              f'Rdata val({rdata:.2f})\tEquations val({equations:.2f})')
 
     # def neg(self, *args):
@@ -196,7 +195,9 @@ class NRC_eq:
         if self.outside_calc:
             if self.diff_report:
                 self.report_diference(self.nrc_handler.mpg(), self.comparison_Rdata.mpg(*args), 'MPg')
-            return self.nrc_handler.mpg()
+            vals = NRC_eq.StaticHandler.mp(*args)
+            # return self.nrc_handler.mp(ing_id)
+            return vals
         else:
             return self.nrc_handler.mpg(*args)
 
@@ -219,7 +220,9 @@ class NRC_eq:
         if self.outside_calc:
             if self.diff_report:
                 self.report_diference(self.nrc_handler.mp(ing_id), self.comparison_Rdata.mp(*args), 'MP')
-            return self.nrc_handler.mp(ing_id)
+            vals = NRC_eq.StaticHandler.mp(*args)
+            # return self.nrc_handler.mp(ing_id)
+            return vals
         else:
             return self.nrc_handler.mp(*args)
 
@@ -418,7 +421,7 @@ class NRC_eq:
             return robjects.r['anim.MPmr.rate'][0]
 
         @staticmethod
-        def mpg():
+        def mpg():  # TODO Not use
             return robjects.r['anim.MPgr.rate'][0]
 
         @staticmethod
