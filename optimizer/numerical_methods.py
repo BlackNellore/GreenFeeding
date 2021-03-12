@@ -441,6 +441,7 @@ class Searcher:
 
                 # n_vals = int(np.ceil((1 + f2_ub - f2_lb) / tol))
                 n_vals = 50
+                # tol = 0.001
                 lca_rhs_space = None
                 if f2_lb + max(tol * (f2_ub - f2_lb) * 1.5, tol) >= f2_ub:
                     lca_rhs_space = np.linspace(f2_lb + tol * (f2_ub - f2_lb) * 1.5, f2_ub, 3)

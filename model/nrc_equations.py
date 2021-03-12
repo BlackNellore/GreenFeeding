@@ -385,7 +385,7 @@ class NRC_eq:
             """
             # Convert to kg CO2eq. {1/55.65} converts MJ to kg CH4 per head.
             # {25} conevrts kg CH4 to kg CO2eq (IPCC 4th assesment, Physical Science Basis, Ch2, pg 212)
-            convert = 25 * 1 / 55.65
+            convert = 34 * 1 / 55.65
             cho = max(1 - (cp + fat + ash), 0)
             # cho2 = ndf + starch + sugars + oa
             feed_ge = (4.15 * cho + 9.4 * fat + 5.7 * cp)  # Mcal/Kg DM

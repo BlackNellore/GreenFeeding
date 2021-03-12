@@ -681,11 +681,13 @@ class ModelLCA(Model):
     @staticmethod
     def __normalise(vector):
         if isinstance(vector, list):
-            return [(vector[i] - min(vector)) / (max(vector) - min(vector)) for i in range(len(vector))]
+            # return [(vector[i] - min(vector)) / (max(vector) - min(vector)) for i in range(len(vector))]
+            return [(vector[i]) / (max(vector)) for i in range(len(vector))]
         elif isinstance(vector, pd.DataFrame):
             for col in vector.columns:
                 temp = vector[col]
-                temp = (temp - temp.min()) / (temp.max() - temp.min())
+                # temp = (temp - temp.min()) / (temp.max() - temp.min())
+                temp = temp / temp.max()
                 vector[col] = temp
             return vector
         raise Exception('Invalid format parsed to normaliser: lp_model l501')
@@ -880,14 +882,13 @@ class ModelLCA(Model):
             #     env_impact_matrix = normalized_temp
 
             # Dot product env impact matrix and weights vector
-            s = pd.DataFrame(list(self._diet.v_x.get_values()))
+            s = pd.DataFrame(list(self._diet.v_x.get_values().values()))
             env_impact_matrix_pandas = env_impact_matrix.T.squeeze()
-            env_impact_vector = env_impact_matrix_pandas.dot(s)
-            env_impact_vector = dict(zip(self.parameters.c_env_impacts_weights.keys(),
-                                         env_impact_vector * units_coverter))
+            env_impact_vector: pd.DataFrame = env_impact_matrix_pandas.dot(s)
+            env_impact_vector = env_impact_vector * units_coverter
 
-            for k, v in env_impact_vector.items():
-                sol[f"LCA emited/kg Animal - {k}"] = v
+            for index, row in env_impact_vector.iterrows():
+                sol[f"LCA emited/kg Animal - {index}"] = row[0]
             if self.parameters.v_stage is None:
                 self.parameters.v_stage = self.parameters.v_lca_weight
             sol["Env Impact weight (Multi Objective)"] = self.parameters.v_stage
