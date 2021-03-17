@@ -179,7 +179,9 @@ class NRC_eq:
         if self.outside_calc:
             if self.diff_report:
                 self.report_diference(self.nrc_handler.dmi(), self.comparison_Rdata.dmi(*args), 'DMI')
-            return self.nrc_handler.dmi()
+            vals = NRC_eq.StaticHandler.dmi(*args)
+            # return self.nrc_handler.dmi()
+            return vals
         else:
             return self.nrc_handler.dmi(*args)
 
@@ -414,7 +416,7 @@ class NRC_eq:
 
         @staticmethod
         def dmi():
-            return robjects.r['anim.DMR'][0]
+            return robjects.r['anim.DMI.rate_NASEM2016'][0]
 
         @staticmethod
         def mpm():

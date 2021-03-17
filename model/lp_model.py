@@ -3,7 +3,7 @@ from config import SOLVER, RNS_FEED_PARAMETERS
 from model import data_handler
 from model.nrc_equations import NRC_eq
 import logging
-import math
+import math, statistics
 import pyomo.environ as pyo
 from pyomo.opt.results import SolverResults
 import pandas as pd
@@ -681,13 +681,15 @@ class ModelLCA(Model):
     @staticmethod
     def __normalise(vector):
         if isinstance(vector, list):
-            # return [(vector[i] - min(vector)) / (max(vector) - min(vector)) for i in range(len(vector))]
-            return [(vector[i]) / (max(vector)) for i in range(len(vector))]
+            return [(vector[i] - min(vector)) / (max(vector) - min(vector)) for i in range(len(vector))]
+            # return [(vector[i]) / (max(vector)) for i in range(len(vector))]
+            # return [(vector[i] - statistics.mean(vector)) / (statistics.stdev(vector)) for i in range(len(vector))]
         elif isinstance(vector, pd.DataFrame):
             for col in vector.columns:
                 temp = vector[col]
-                # temp = (temp - temp.min()) / (temp.max() - temp.min())
-                temp = temp / temp.max()
+                temp = (temp - temp.min()) / (temp.max() - temp.min())
+                # temp = (temp - vector.mean(0)[col]) / (vector.std(0)[col])
+                # temp = temp / temp.max()
                 vector[col] = temp
             return vector
         raise Exception('Invalid format parsed to normaliser: lp_model l501')
