@@ -57,6 +57,10 @@ class NRC_abs(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
+    def ttdn(self, *args):
+        pass
+
+    @abc.abstractmethod
     def pe_ndf(self, *args):
         pass
 
@@ -179,9 +183,9 @@ class NRC_eq:
         if self.outside_calc:
             if self.diff_report:
                 self.report_diference(self.nrc_handler.dmi(), self.comparison_Rdata.dmi(*args), 'DMI')
-            vals = NRC_eq.StaticHandler.dmi(*args)
-            # return self.nrc_handler.dmi()
-            return vals
+            # vals = NRC_eq.StaticHandler.dmi(*args)
+            return self.nrc_handler.dmi()
+            # return vals
         else:
             return self.nrc_handler.dmi(*args)
 
@@ -197,9 +201,9 @@ class NRC_eq:
         if self.outside_calc:
             if self.diff_report:
                 self.report_diference(self.nrc_handler.mpg(), self.comparison_Rdata.mpg(*args), 'MPg')
-            vals = NRC_eq.StaticHandler.mp(*args)
-            # return self.nrc_handler.mp(ing_id)
-            return vals
+            # vals = NRC_eq.StaticHandler.mpg(*args)
+            return self.nrc_handler.mpg()
+            # return vals
         else:
             return self.nrc_handler.mpg(*args)
 
@@ -207,32 +211,42 @@ class NRC_eq:
         if self.outside_calc:
             if self.diff_report:
                 self.report_diference(self.nrc_handler.nem(), self.comparison_Rdata.nem(*args), 'NEm')
-            return self.nrc_handler.nem()
+            vals = NRC_eq.StaticHandler.nem(*args)
+            # return self.nrc_handler.nem()
+            return vals
         else:
             return self.nrc_handler.nem(*args)
 
     def get_all_parameters(self, cnem, sbw, bcs, be, lac, sex, a2, ph_val, target_weight, dmi_eq):
         """Easier way to get all parameters needed on the model at once"""
-        return self.mpm(sbw), \
+        return self.mpm((sbw+target_weight)/2), \
                self.dmi(cnem, sbw, target_weight, dmi_eq), \
-               self.nem(sbw, bcs, be, lac, sex, a2), \
+               self.nem((sbw+target_weight)/2, bcs, be, lac, sex, a2), \
                self.pe_ndf(ph_val)
 
     def mp(self, ing_id, *args):
         if self.outside_calc:
             if self.diff_report:
                 self.report_diference(self.nrc_handler.mp(ing_id), self.comparison_Rdata.mp(*args), 'MP')
-            vals = NRC_eq.StaticHandler.mp(*args)
-            # return self.nrc_handler.mp(ing_id)
-            return vals
+            # vals = NRC_eq.StaticHandler.mp(*args)
+            return self.nrc_handler.mp(ing_id)
+            # return vals
         else:
             return self.nrc_handler.mp(*args)
 
     def npn(self, ing_id, *args):
         if self.outside_calc:
             if self.diff_report:
-                self.report_diference(self.nrc_handler.mp(ing_id), self.comparison_Rdata.npn(*args), 'MP')
+                self.report_diference(self.nrc_handler.npn(ing_id), self.comparison_Rdata.npn(*args), 'NPN')
             return self.nrc_handler.npn(ing_id)
+        else:
+            return args[0]
+
+    def ttdn(self, ing_id, *args):
+        if self.outside_calc:
+            if self.diff_report:
+                self.report_diference(self.nrc_handler.ttdn(ing_id), self.comparison_Rdata.ttdn(*args), 'TDN')
+            return self.nrc_handler.ttdn(ing_id)
         else:
             return args[0]
 
@@ -240,7 +254,8 @@ class NRC_eq:
         if self.outside_calc:
             if self.diff_report:
                 self.report_diference(self.nrc_handler.pe_ndf(), self.comparison_Rdata.pe_ndf(*args), 'peNDF')
-            return self.nrc_handler.pe_ndf()
+            # return self.nrc_handler.pe_ndf()
+            return NRC_eq.StaticHandler.pe_ndf(*args)
         else:
             return self.nrc_handler.pe_ndf(*args)
 
@@ -353,6 +368,9 @@ class NRC_eq:
         def npn(self, *args):
             return args[0]
 
+        def ttdn(self, *args):
+            return args[0]
+
         @staticmethod
         def pe_ndf(ph_val):
             """Physically Effective Non-Detergent Fiber"""
@@ -406,8 +424,13 @@ class NRC_eq:
             feeds3 = robjects.r['feeds3']
             py_feeds = pandas2ri.rpy2py_dataframe(feeds3)
             self._feed_order = list(map(int, py_feeds['FeedID'].to_list()))
-            self._feed_MP = list(pandas2ri.ri2py_vector(robjects.r[f'anim.fd.MP.rate']))
-            self._feed_NPN = list(pandas2ri.ri2py_vector(robjects.r[f'anim.fd.NPN.conc']))
+            self._feed_aTDN = list(pandas2ri.ri2py_vector(robjects.r[f'anim.fd.aTDN.conc']))
+            self._feed_tTDN = list(pandas2ri.ri2py_vector(robjects.r[f'anim.fd.tTDN.conc']))
+            self._feed_RUP = list(map(float, py_feeds['RUP_1x'].to_list()))
+            self._feed_NPN = list(map(float, py_feeds['NPN_SP'].to_list()))
+            feed_SP = list(map(float, py_feeds['SP_CP'].to_list()))
+            feed_CP = list(map(float, py_feeds['CP_DM'].to_list()))
+            self._feed_NPN = [self._feed_NPN[i] * feed_SP[i] * feed_CP[i]/10000 for i in range(len(feed_SP))]
             self._feed_GE = list(pandas2ri.ri2py_vector(robjects.r[f'anim.fd.GE.frac']))
 
         @staticmethod
@@ -416,7 +439,7 @@ class NRC_eq:
 
         @staticmethod
         def dmi():
-            return robjects.r['anim.DMI.rate_NASEM2016'][0]
+            return robjects.r['anim.DMI.rate_NRC2000'][0]
 
         @staticmethod
         def mpm():
@@ -433,14 +456,16 @@ class NRC_eq:
         def mp(self, ing_id):
             try:
                 index = self._feed_order.index(ing_id)
-                return self._feed_MP[index]
+                # return self._feed_MP[index]
+                return self._feed_aTDN[index] * 0.13 * 0.8 * 0.8 * 0.01 \
+                       + 0.8 * self._feed_RUP[index] * 0.01 * 1.682 / self.dmi()
             except ValueError as err:
                 logging.error(f'Ingredient index not found in image.Rdata file. ID = {ing_id},'
                               f' available  IDs = {self._feed_order}')
                 raise err
 
         def pe_ndf(self):
-            return robjects.r['anim.peNDF_balance.rate'][0] / self.dmi()
+            return robjects.r['anim.peNDF_required_acidosis.rate'][0]
 
         def ch4_diet(self, fat, cp, ash, ndf, starch, sugars, oa, ing_id):
             # Convert to kg CO2eq. {1/55.65} converts MJ to kg CH4 per head. {25} conevrts kg CH4 to kg CO2eq
@@ -459,6 +484,15 @@ class NRC_eq:
             try:
                 index = self._feed_order.index(ing_id)
                 return self._feed_NPN[index]
+            except ValueError as err:
+                logging.error(f'Ingredient index not found in image.Rdata file. ID = {ing_id},'
+                              f' available  IDs = {self._feed_order}')
+                raise err
+
+        def ttdn(self, ing_id):
+            try:
+                index = self._feed_order.index(ing_id)
+                return self._feed_tTDN[index] / 100
             except ValueError as err:
                 logging.error(f'Ingredient index not found in image.Rdata file. ID = {ing_id},'
                               f' available  IDs = {self._feed_order}')

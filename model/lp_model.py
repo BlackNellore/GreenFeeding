@@ -70,8 +70,8 @@ class Model:
         if p_swg is None:
             return dict(zip(["CNEm", "CNEg", "NEm", "NEg", "DMI", "MPm", "MPg", "MPr", "peNDF"],
                             [self.parameters.cnem, self.parameters.cneg, self.parameters.nem, self.parameters.neg,
-                             self.parameters.dmi, self.parameters.mpmr * 0.001, self.parameters.mpgr * 0.001,
-                             self.parameters.mpr * 0.001, self.parameters.pe_ndf]))
+                             self.parameters.dmi, self.parameters.mpmr * 0.001, self.parameters.mpgr,
+                             self.parameters.mpr, self.parameters.pe_ndf]))
         else:
             return dict(zip(["CNEm", "CNEg", "NEm", "NEg", "SWG", "DMI", "MPm", "MPg", "MPr","peNDF"],
                             [self.parameters.cnem, self.parameters.cneg, self.parameters.nem, self.parameters.neg,
@@ -94,7 +94,8 @@ class Model:
                 raise Exception("Solver not available")
 
         results = SolverResults()
-        r = slv.solve(self._diet)
+        r = slv.solve(self._diet, tee=False)
+        # r = slv.solve(self._diet, tee=True)
         results.load(r)
         if not (results.solver.status == pyo.SolverStatus.ok and
                 results.solver.termination_condition == pyo.TerminationCondition.optimal):
@@ -118,6 +119,10 @@ class Model:
         sol["obj_revenue"] = self.computed.revenue
 
         sol["MP diet"] = self._diet.c_mpm.body()
+        x_sol = [self._diet.v_x[i].value for i in self._diet.v_x]
+        sol["NPN"] = sum([list(self.data.dc_npn.values())[i] * x_sol[i] * 0.01 for i in range(len(x_sol))])
+        sol["RDP"] = sum([list(self.data.dc_rdp.values())[i] * x_sol[i] for i in range(len(x_sol))])
+
 
         is_active_constraints = []
         l_slack = {}
@@ -288,6 +293,7 @@ class Model:
             [self.dc_dm_af_conversion,
              self.dc_nem,
              self.dc_npn,
+             self.dc_ttdn,
              self.dc_fat,
              self.dc_mp_properties,
              rup,
@@ -298,6 +304,7 @@ class Model:
                                                                 [headers_feed_lib.s_DM,
                                                                  headers_feed_lib.s_NEma,
                                                                  headers_feed_lib.s_NPN,
+                                                                 headers_feed_lib.s_TDN,
                                                                  headers_feed_lib.s_Fat,
                                                                  [headers_feed_lib.s_DM,
                                                                   headers_feed_lib.s_TDN,
@@ -317,6 +324,8 @@ class Model:
                                                                 )
             for k, v in self.dc_npn.items():
                 self.dc_npn[k] = nrc.npn(k, v)
+            for k, v in self.dc_ttdn.items():
+                self.dc_ttdn[k] = nrc.ttdn(k, v)
 
             self.dc_rdp = {}
             self.dc_pendf = {}
@@ -389,9 +398,9 @@ class Model:
 
         if self.parameters.p_obj == "MaxProfit" or self.parameters.p_obj == "MinCost":
             for i in self.data.ingredient_ids:
-                self.computed.dc_expenditure[i] =\
+                self.computed.dc_expenditure[i] = \
                     - self.data.dc_cost[i] * self.parameters.dmi * self.parameters.c_model_feeding_time / \
-                                                  self.data.dc_dm_af_conversion[i]
+                    self.data.dc_dm_af_conversion[i]
         elif self.parameters.p_obj == "MaxProfitSWG" or self.parameters.p_obj == "MinCostSWG":
             for i in self.data.ingredient_ids:
                 self.computed.dc_expenditure[i] = \
@@ -427,6 +436,7 @@ class Model:
         self._diet.p_model_npn = pyo.Param(self._diet.s_var_set, initialize=self.data.dc_npn)
         self._diet.p_model_mp = pyo.Param(self._diet.s_var_set, within=pyo.Any, mutable=True)
         self._diet.p_model_rdp = pyo.Param(self._diet.s_var_set, initialize=self.data.dc_rdp)
+        self._diet.p_model_ttdn = pyo.Param(self._diet.s_var_set, initialize=self.data.dc_ttdn)
         self._diet.p_model_fat = pyo.Param(self._diet.s_var_set, initialize=self.data.dc_fat)
         self._diet.p_model_pendf = pyo.Param(self._diet.s_var_set, initialize=self.data.dc_pendf)
         self._diet.p_rhs_cnem_ge = pyo.Param(within=pyo.Any, mutable=True)
@@ -461,8 +471,11 @@ class Model:
         self._diet.c_sum_1 = pyo.Constraint(expr=pyo.summation(self._diet.v_x) == self._diet.p_rhs_sum_1)
         self._diet.c_mpm = pyo.Constraint(
             expr=pyo.summation(self._diet.p_model_mp, self._diet.v_x) >= self._diet.p_rhs_mp)
+        # self._diet.c_rdp = pyo.Constraint(
+        #     expr=pyo.summation(self._diet.p_model_rdp, self._diet.v_x) >= self._diet.p_rhs_rdp)
         self._diet.c_rdp = pyo.Constraint(
-            expr=pyo.summation(self._diet.p_model_rdp, self._diet.v_x) >= self._diet.p_rhs_rdp)
+            expr=pyo.summation(self._diet.p_model_rdp, self._diet.v_x) -
+                 0.125 * pyo.summation(self._diet.p_model_ttdn, self._diet.v_x) >= 0)
         self._diet.c_fat = pyo.Constraint(
             expr=pyo.summation(self._diet.p_model_fat, self._diet.v_x) <= self._diet.p_rhs_fat)
         self._diet.c_alt_fat_ge = pyo.Constraint(
@@ -471,8 +484,11 @@ class Model:
             expr=pyo.summation(self._diet.p_model_fat, self._diet.v_x) <= self._diet.p_rhs_alt_fat_le)
         self._diet.c_pendf = pyo.Constraint(
             expr=pyo.summation(self._diet.p_model_pendf, self._diet.v_x) >= self._diet.p_rhs_pendf)
+        # self._diet.c_npn = pyo.Constraint(
+        #     expr=pyo.summation(self._diet.p_model_npn, self._diet.v_x) <= self._diet.p_rhs_rdp_ub)
         self._diet.c_npn = pyo.Constraint(
-            expr=pyo.summation(self._diet.p_model_npn, self._diet.v_x) <= self._diet.p_rhs_rdp_ub)
+            expr=pyo.summation(self._diet.p_model_npn, self._diet.v_x) * 0.01
+                 - 0.67 * pyo.summation(self._diet.p_model_rdp, self._diet.v_x) <= 0)
         self._diet.c_mpr = pyo.Constraint(
             expr=pyo.summation(self._diet.p_model_mp, self._diet.v_x) <= self._diet.p_rhs_mp_ub)
 
@@ -489,13 +505,13 @@ class Model:
         self._diet.p_rhs_cnem_le = self.parameters.cnem * 1.001
         self._diet.p_rhs_sum_1 = 1.0
         self._diet.p_rhs_mp = (self.parameters.mpmr + self.parameters.mpgr) * 0.001 / self.parameters.dmi
-        self._diet.p_rhs_mp_ub = 1.15 * (self.parameters.mpmr + self.parameters.mpgr) * 0.001 / self.parameters.dmi
-        self._diet.p_rhs_rdp = 0.125 * self.parameters.cnem
-        self._diet.p_rhs_rdp_ub = 0.125 * self.parameters.cnem * 0.67 * 100
+        self._diet.p_rhs_mp_ub = 1.55 * (self.parameters.mpmr + self.parameters.mpgr) * 0.001 / self.parameters.dmi
+        self._diet.p_rhs_rdp = 0.125 * self.parameters.cnem # TODO TDN, ano CNEm
+        # self._diet.p_rhs_rdp_ub = 0.125 * self.parameters.cnem * 0.67 * 100
         self._diet.p_rhs_fat = 0.06
         self._diet.p_rhs_alt_fat_ge = 0.039
         self._diet.p_rhs_alt_fat_le = 0.039
-        self._diet.p_rhs_pendf = self.parameters.pe_ndf / self.parameters.dmi
+        self._diet.p_rhs_pendf = self.parameters.pe_ndf
 
         if self.parameters.p_fat_orient == "G":
             self._diet.c_alt_fat_ge.activate()
