@@ -264,7 +264,9 @@ class NRC_eq:
             if self.diff_report:
                 self.report_diference(self.nrc_handler.mpg(),
                                       self.comparison_Rdata.mpg(*args), 'MPg')
-            return self.nrc_handler.ch4_diet(*args)
+            vals = NRC_eq.StaticHandler.ch4_diet(*args)
+            # return self.nrc_handler.ch4_diet(*args)
+            return vals
         else:
             return self.nrc_handler.ch4_diet(*args)
 
@@ -413,7 +415,7 @@ class NRC_eq:
             feed_ge *= 4.18  # Mcal to MJ
             feed_ge *= convert  # MJ/kg DM per day ===> Kg CO2e/kg DM per day
 
-            return [(0.04 * feed_ge), (0.02 * feed_ge)]  # Output kg CO2eq/day per kg of feed
+            return [(0.036 * feed_ge), (0.036 * feed_ge)]  # Output kg CO2eq/day per kg of feed
 
     class RDataHandler(NRC_abs):
         _feed_order: list = None
@@ -424,8 +426,8 @@ class NRC_eq:
             feeds3 = robjects.r['feeds3']
             py_feeds = pandas2ri.rpy2py_dataframe(feeds3)
             self._feed_order = list(map(int, py_feeds['FeedID'].to_list()))
-            self._feed_aTDN = list(pandas2ri.ri2py_vector(robjects.r[f'anim.fd.aTDN.conc']))
-            self._feed_tTDN = list(pandas2ri.ri2py_vector(robjects.r[f'anim.fd.tTDN.conc']))
+            self._feed_aTDN = list(map(float, py_feeds['TDN_1x'].to_list()))
+            self._feed_tTDN = list(map(float, py_feeds['TDN_1x'].to_list()))
             self._feed_RUP = list(map(float, py_feeds['RUP_1x'].to_list()))
             self._feed_NPN = list(map(float, py_feeds['NPN_SP'].to_list()))
             feed_SP = list(map(float, py_feeds['SP_CP'].to_list()))
@@ -474,9 +476,10 @@ class NRC_eq:
             convert = 25 * 1 / 55.65
             try:
                 index = self._feed_order.index(ing_id)
+                # TODO not use
                 co2perday = self._feed_GE[index] * 4.18  # Mcal/Kg DM => MJ/kg DM
                 co2perday *= convert  # MJ/kg DM per day ===> Kg CO2e/kg DM per day
-                return [(0.065 * co2perday), (0.033 * co2perday)]  # Output kg CO2eq/day per kg of feed
+                return [(0.036 * co2perday), (0.036 * co2perday)]  # Output kg CO2eq/day per kg of feed
             except ValueError as err:
                 logging.error(f'Ingredient index not found in image.Rdata file. ID = {ing_id},'
                               f' available  IDs = {self._feed_order}')
