@@ -407,10 +407,10 @@ class NRC_eq:
             """
             # Convert to kg CO2eq. {1/55.65} converts MJ to kg CH4 per head.
             # {25} conevrts kg CH4 to kg CO2eq (IPCC 4th assesment, Physical Science Basis, Ch2, pg 212)
-            convert = 34 * 1 / 55.65
+            convert = 25 * 1 / 55.65
             cho = max(1 - (cp + fat + ash), 0)
             # cho2 = ndf + starch + sugars + oa
-            feed_ge = (4.15 * cho + 9.4 * fat + 5.7 * cp)  # Mcal/Kg DM
+            # feed_ge = (4.15 * cho + 9.4 * fat + 5.7 * cp)  # Mcal/Kg DM
             feed_ge = (4.73 * ndf + 3.82 * (cho - ndf) + 12.48 * fat + 6.29 * cp)  # Mcal/Kg DM Moraes et al 2014
             feed_ge *= 4.18  # Mcal to MJ
             feed_ge *= convert  # MJ/kg DM per day ===> Kg CO2e/kg DM per day
