@@ -211,9 +211,9 @@ class NRC_eq:
         if self.outside_calc:
             if self.diff_report:
                 self.report_diference(self.nrc_handler.nem(), self.comparison_Rdata.nem(*args), 'NEm')
-            vals = NRC_eq.StaticHandler.nem(*args)
-            # return self.nrc_handler.nem()
-            return vals
+            # vals = NRC_eq.StaticHandler.nem(*args)
+            return self.nrc_handler.nem()
+            # return vals
         else:
             return self.nrc_handler.nem(*args)
 
@@ -430,6 +430,7 @@ class NRC_eq:
             self._feed_NPN = list(map(float, py_feeds['NPN_SP'].to_list()))
             feed_SP = list(map(float, py_feeds['SP_CP'].to_list()))
             feed_CP = list(map(float, py_feeds['CP_DM'].to_list()))
+            self.feed_CP = feed_CP
             self._feed_NPN = [self._feed_NPN[i] * feed_SP[i] * feed_CP[i]/10000 for i in range(len(feed_SP))]
             self._feed_GE = list(pandas2ri.ri2py_vector(robjects.r[f'anim.fd.GE.frac']))
 
@@ -439,7 +440,7 @@ class NRC_eq:
 
         @staticmethod
         def dmi():
-            return robjects.r['anim.DMI.rate_NRC2000'][0]
+            return robjects.r['anim.DMI.rate_NASEM2016'][0]
 
         @staticmethod
         def mpm():
@@ -457,8 +458,9 @@ class NRC_eq:
             try:
                 index = self._feed_order.index(ing_id)
                 # return self._feed_MP[index]
-                return self._feed_aTDN[index] * 0.13 * 0.8 * 0.8 * 0.01 \
-                       + 0.8 * self._feed_RUP[index] * 0.01 * 1.682 / self.dmi()
+                # return self._feed_aTDN[index] * 0.13 * 0.8 * 0.8 * 0.01 \
+                #        + 0.8 * self._feed_RUP[index] * 0.01 * 1.682 / self.dmi()
+                return self.feed_CP[index] * 0.9 * 0.01
             except ValueError as err:
                 logging.error(f'Ingredient index not found in image.Rdata file. ID = {ing_id},'
                               f' available  IDs = {self._feed_order}')
