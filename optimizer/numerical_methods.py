@@ -414,8 +414,8 @@ class Searcher:
                 logging.error(f"Multi-objective must have valid LCA ID. Check the input spreadsheet. LCA ID = {lca_id}")
                 raise IndexError(f"Multi-objective must have valid LCA ID. Value parsed = {lca_id}")
             self._model: ModelLCA = self._model
-            # forage = ['L', 'G']
-            forage = ['L']
+            forage = ['L', 'G']
+            # forage = ['L']
             for v in forage:
                 self.__clear_searcher()
                 self._model.set_obj_weights(1.0, 0.0)
