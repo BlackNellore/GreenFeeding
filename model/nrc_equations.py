@@ -415,7 +415,7 @@ class NRC_eq:
             feed_ge *= 4.18  # Mcal to MJ
             feed_ge *= convert  # MJ/kg DM per day ===> Kg CO2e/kg DM per day
 
-            return [(0.036 * feed_ge), (0.036 * feed_ge)]  # Output kg CO2eq/day per kg of feed
+            return [(0.035 * feed_ge), (0.037 * feed_ge)]  # Output kg CO2eq/day per kg of feed
 
     class RDataHandler(NRC_abs):
         _feed_order: list = None
