@@ -5,7 +5,7 @@ from model.lp_model import Model, ModelReducedCost, ModelLCA
 
 Status = Enum('Status', 'EMPTY READY SOLVED ERROR')
 
-default_fat_list = ["G", "L"]
+default_fat_list = ["L"]
 
 
 class Searcher:
@@ -414,7 +414,7 @@ class Searcher:
                 logging.error(f"Multi-objective must have valid LCA ID. Check the input spreadsheet. LCA ID = {lca_id}")
                 raise IndexError(f"Multi-objective must have valid LCA ID. Value parsed = {lca_id}")
             self._model: ModelLCA = self._model
-            forage = ['L', 'G']
+            forage = ['L']
             # forage = ['L']
             for v in forage:
                 self.__clear_searcher()
@@ -426,7 +426,7 @@ class Searcher:
                 sol_vec = getattr(self, algorithm)(lb, ub, tol, uncertain_bounds=True, mode="BF")  # max f1
                 status, solution = self.get_sol_results(lca_id, sol_vec, best=True)  # get f1_ub, f2_lb
                 if solution is None:
-                    logging.error(f"Model is infeasible for forage concentration {v} 20%")
+                    logging.error(f"Model is infeasible for forage concentration {v} 50%")
                     continue
                 f1_ub, f2_ub, cnem_1 = self._model.get_obj_sol(solution)  # get f1_ub, f2_lb
 

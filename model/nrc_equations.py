@@ -64,9 +64,9 @@ class NRC_abs(metaclass=abc.ABCMeta):
     def pe_ndf(self, *args):
         pass
 
-    @abc.abstractmethod
-    def ch4_diet(self, *args):
-        pass
+    # @abc.abstractmethod
+    # def ch4_diet(self, *args):
+    #     pass
 
 
 class NRC_eq:
@@ -259,16 +259,17 @@ class NRC_eq:
         else:
             return self.nrc_handler.pe_ndf(*args)
 
-    def ch4_diet(self, *args):
-        if self.outside_calc:
-            if self.diff_report:
-                self.report_diference(self.nrc_handler.mpg(),
-                                      self.comparison_Rdata.mpg(*args), 'MPg')
-            vals = NRC_eq.StaticHandler.ch4_diet(*args)
-            # return self.nrc_handler.ch4_diet(*args)
-            return vals
-        else:
-            return self.nrc_handler.ch4_diet(*args)
+    @staticmethod
+    def ch4_diet(fat, cp, ash, ndf, starch, sugars, oa, ing_id, sbw, forage, dmi):
+        convert = 25 * 0.01 / 55.65
+        bw = sbw / 0.96
+        cho = max(1 - (cp + fat + ash), 0)
+        # cho2 = ndf + starch + sugars + oa
+        # feed_ge = (4.15 * cho + 9.4 * fat + 5.7 * cp)  # Mcal/Kg DM
+        feed_ge = (4.73 * ndf + 3.82 * (cho - ndf) + 12.48 * fat + 6.29 * cp) * dmi  # Mcal/Kg DM Moraes et al 2014
+        ch4 = -35 + 0.08 * bw + 1.20 * forage * 100 - 15 * dmi * fat + 3.14 * feed_ge
+        ch4 = ch4 * convert / dmi
+        return [ch4, ch4]
 
     @staticmethod
     def n2o_diet(animal_final_weight, n2o_eq):
@@ -399,23 +400,42 @@ class NRC_eq:
                         msg = msg + f'<{k}, {v}>'
                 raise ValueError(msg)
 
-        @staticmethod
-        def ch4_diet(fat, cp, ash, ndf, starch, sugars, oa, ing_id):
-            """
-            :params fat, cp, ndf, starch, sugars, oa: float
-            :return [val_forage>=20%, val_forage<=20%]: list (kg CO2eq/day)
-            """
-            # Convert to kg CO2eq. {1/55.65} converts MJ to kg CH4 per head.
-            # {25} conevrts kg CH4 to kg CO2eq (IPCC 4th assesment, Physical Science Basis, Ch2, pg 212)
-            convert = 25 * 1 / 55.65
-            cho = max(1 - (cp + fat + ash), 0)
-            # cho2 = ndf + starch + sugars + oa
-            # feed_ge = (4.15 * cho + 9.4 * fat + 5.7 * cp)  # Mcal/Kg DM
-            feed_ge = (4.73 * ndf + 3.82 * (cho - ndf) + 12.48 * fat + 6.29 * cp)  # Mcal/Kg DM Moraes et al 2014
-            feed_ge *= 4.18  # Mcal to MJ
-            feed_ge *= convert  # MJ/kg DM per day ===> Kg CO2e/kg DM per day
-
-            return [(0.035 * feed_ge), (0.037 * feed_ge)]  # Output kg CO2eq/day per kg of feed
+        # @staticmethod
+        # def ch4_diet(fat, cp, ash, ndf, starch, sugars, oa, ing_id):
+        #     """
+        #     :params fat, cp, ndf, starch, sugars, oa: float
+        #     :return [val_forage>=20%, val_forage<=20%]: list (kg CO2eq/day)
+        #     """
+        #     # Convert to kg CO2eq. {1/55.65} converts MJ to kg CH4 per head.
+        #     # {25} conevrts kg CH4 to kg CO2eq (IPCC 4th assesment, Physical Science Basis, Ch2, pg 212)
+        #     convert = 25 * 1 / 55.65
+        #     cho = max(1 - (cp + fat + ash), 0)
+        #     # cho2 = ndf + starch + sugars + oa
+        #     # feed_ge = (4.15 * cho + 9.4 * fat + 5.7 * cp)  # Mcal/Kg DM
+        #     feed_ge = (4.73 * ndf + 3.82 * (cho - ndf) + 12.48 * fat + 6.29 * cp)  # Mcal/Kg DM Moraes et al 2014
+        #     feed_ge *= 4.18  # Mcal to MJ
+        #     feed_ge *= convert  # MJ/kg DM per day ===> Kg CO2e/kg DM per day
+        #
+        #     return [(0.035 * feed_ge), (0.037 * feed_ge)]  # Output kg CO2eq/day per kg of feed
+        #
+        # @staticmethod
+        # def ch4_diet_escobar(fat, cp, ash, ndf, starch, sugars, oa, ing_id, sbw, forage, dmi):
+        #     """
+        #     :params fat, cp, ndf, starch, sugars, oa: float
+        #     :return [val_forage>=20%, val_forage<=20%]: list (kg CO2eq/day)
+        #     """
+        #     # Convert to kg CO2eq. {1/55.65} converts MJ to kg CH4 per head.
+        #     # {25} conevrts kg CH4 to kg CO2eq (IPCC 4th assesment, Physical Science Basis, Ch2, pg 212)
+        #     convert = 25 * 0.01 / 55.65
+        #     bw = sbw / 0.96
+        #     cho = max(1 - (cp + fat + ash), 0)
+        #     # cho2 = ndf + starch + sugars + oa
+        #     # feed_ge = (4.15 * cho + 9.4 * fat + 5.7 * cp)  # Mcal/Kg DM
+        #     feed_ge = (4.73 * ndf + 3.82 * (cho - ndf) + 12.48 * fat + 6.29 * cp) * dmi # Mcal/Kg DM Moraes et al 2014
+        #     ch4 = -35 + 0.08 * bw + 120 * forage - 90 * dmi * fat + 3.14 * feed_ge
+        #     ch4 = ch4 * convert / dmi
+        #
+        #     return [ch4, ch4]  # Output kg CO2eq/day per kg of feed
 
     class RDataHandler(NRC_abs):
         _feed_order: list = None
@@ -470,20 +490,6 @@ class NRC_eq:
 
         def pe_ndf(self):
             return robjects.r['anim.peNDF_required_acidosis.rate'][0]
-
-        def ch4_diet(self, fat, cp, ash, ndf, starch, sugars, oa, ing_id):
-            # Convert to kg CO2eq. {1/55.65} converts MJ to kg CH4 per head. {25} conevrts kg CH4 to kg CO2eq
-            convert = 25 * 1 / 55.65
-            try:
-                index = self._feed_order.index(ing_id)
-                # TODO not use
-                co2perday = self._feed_GE[index] * 4.18  # Mcal/Kg DM => MJ/kg DM
-                co2perday *= convert  # MJ/kg DM per day ===> Kg CO2e/kg DM per day
-                return [(0.036 * co2perday), (0.036 * co2perday)]  # Output kg CO2eq/day per kg of feed
-            except ValueError as err:
-                logging.error(f'Ingredient index not found in image.Rdata file. ID = {ing_id},'
-                              f' available  IDs = {self._feed_order}')
-                raise err
 
         def npn(self, ing_id):
             try:

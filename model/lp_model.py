@@ -509,8 +509,10 @@ class Model:
         self._diet.p_rhs_rdp = 0.125 * self.parameters.cnem # TODO TDN, ano CNEm
         # self._diet.p_rhs_rdp_ub = 0.125 * self.parameters.cnem * 0.67 * 100
         self._diet.p_rhs_fat = 0.06
-        self._diet.p_rhs_alt_fat_ge = 0.039
-        self._diet.p_rhs_alt_fat_le = 0.039
+        # self._diet.p_rhs_alt_fat_ge = 0.039
+        # self._diet.p_rhs_alt_fat_le = 0.039
+        self._diet.p_rhs_alt_fat_ge = 0.06
+        self._diet.p_rhs_alt_fat_le = 0.06
         self._diet.p_rhs_pendf = self.parameters.pe_ndf
 
         if self.parameters.p_fat_orient == "G":
@@ -726,7 +728,11 @@ class ModelLCA(Model):
                                                           self.data.ing_starch[i],
                                                           self.data.ing_sugars[i],
                                                           self.data.ing_oa[i],
-                                                          i)
+                                                          i,
+                                                          (self.parameters.p_sbw + self.parameters.c_model_final_weight)/2,
+                                                          self.data.d_forage[i],
+                                                          self.parameters.dmi
+                                                          )
                 methane_vector_ge20.append(methane_ge20)
                 methane_vector_le20.append(methane_le20)
 
@@ -777,8 +783,8 @@ class ModelLCA(Model):
         Model._build_model(self)
         # Constraint: sum(x forage) [<= >=] 20%
         self._diet.p_forage = pyo.Param(self._diet.s_var_set, initialize=self.data.d_forage)
-        self._diet.p_rhs_forage_ge = pyo.Param(within=pyo.Any, initialize=0.2)
-        self._diet.p_rhs_forage_le = pyo.Param(within=pyo.Any, initialize=0.2)
+        self._diet.p_rhs_forage_ge = pyo.Param(within=pyo.Any, initialize=0.5)
+        self._diet.p_rhs_forage_le = pyo.Param(within=pyo.Any, initialize=0.5)
         self._diet.c_forage_ge = pyo.Constraint(
             expr=pyo.summation(self._diet.p_forage, self._diet.v_x) >= self._diet.p_rhs_forage_ge)
         self._diet.c_forage_le = pyo.Constraint(
