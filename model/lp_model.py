@@ -265,7 +265,7 @@ class Model:
             """Retrieve parameters data from table. See data_handler.py for more"""
             self.ds = out_ds
 
-            self.headers_feed_scenario = self.ds.headers_feed_scenario
+            self.headers_feed_scenario:data_handler.Data.ScenarioFeedProperties = self.ds.headers_feed_scenario
 
             headers_feed_scenario = self.ds.headers_feed_scenario
             data_feed_scenario = self.ds.filter_column(self.ds.data_feed_scenario,
@@ -322,6 +322,9 @@ class Model:
                                                                 self.headers_feed_scenario.s_ID,
                                                                 return_dict=True
                                                                 )
+            if 'DM' in self.headers_feed_scenario.s_feed_cost:
+                for k in self.dc_dm_af_conversion.keys():
+                    self.dc_dm_af_conversion[k] = 1
             for k, v in self.dc_npn.items():
                 self.dc_npn[k] = nrc.npn(k, v)
             for k, v in self.dc_ttdn.items():
@@ -783,8 +786,8 @@ class ModelLCA(Model):
         Model._build_model(self)
         # Constraint: sum(x forage) [<= >=] 20%
         self._diet.p_forage = pyo.Param(self._diet.s_var_set, initialize=self.data.d_forage)
-        self._diet.p_rhs_forage_ge = pyo.Param(within=pyo.Any, initialize=0.5)
-        self._diet.p_rhs_forage_le = pyo.Param(within=pyo.Any, initialize=0.5)
+        self._diet.p_rhs_forage_ge = pyo.Param(within=pyo.Any, initialize=0.65)
+        self._diet.p_rhs_forage_le = pyo.Param(within=pyo.Any, initialize=0.65)
         self._diet.c_forage_ge = pyo.Constraint(
             expr=pyo.summation(self._diet.p_forage, self._diet.v_x) >= self._diet.p_rhs_forage_ge)
         self._diet.c_forage_le = pyo.Constraint(
