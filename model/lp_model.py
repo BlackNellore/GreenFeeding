@@ -684,14 +684,20 @@ class ModelLCA(Model):
                                                 None,
                                                 headers_feed_lib.s_ID,
                                                 True)
+            self.ing_tdn = self.ds.sorted_column(data_feed_lib,
+                                                 headers_feed_lib.s_TDN,
+                                                 None,
+                                                 headers_feed_lib.s_ID,
+                                                 True)
 
     class ComputedArrays(Model.ComputedArrays):
         d_methane_vector_ge20: dict = None
         d_methane_vector_le20: dict = None
+        d_n2o_emission: dict = None
         env_impact_array: list = None
         profit_array: list = None
 
-        cst_n2o_emission: float = None
+        # cst_n2o_emission: float = None
 
     def __init__(self, out_ds, parameters):
         Model.__init__(self, None, None)
@@ -722,6 +728,7 @@ class ModelLCA(Model):
         # computing methane
         methane_vector_ge20 = []
         methane_vector_le20 = []
+        n2o_vector = []
         if self.parameters.c_methane_equation is not None:
             for i in self.data.ingredient_ids:
                 methane_ge20, methane_le20 = nrc.ch4_diet(self.data.ing_fat[i],
@@ -734,21 +741,37 @@ class ModelLCA(Model):
                                                           i,
                                                           (self.parameters.p_sbw + self.parameters.c_model_final_weight)/2,
                                                           self.data.d_forage[i],
-                                                          self.parameters.dmi
-                                                          )
+                                                          self.parameters.dmi,
+                                                          self.data.ing_tdn[i])
+                n2o = nrc.n2o_diet(self.parameters.c_model_final_weight,
+                                          self.parameters.c_n2o_equation,
+                                          self.data.ing_fat[i],
+                                          self.data.ing_cp[i],
+                                          self.data.ing_ash[i],
+                                          self.data.ing_ndf[i],
+                                          self.data.ing_starch[i],
+                                          self.data.ing_sugars[i],
+                                          self.data.ing_oa[i],
+                                          i,
+                                          (self.parameters.p_sbw + self.parameters.c_model_final_weight) / 2,
+                                          self.data.d_forage[i],
+                                          self.parameters.dmi
+                                          )
                 methane_vector_ge20.append(methane_ge20)
                 methane_vector_le20.append(methane_le20)
+                n2o_vector.append(n2o)
 
         self.computed.d_methane_vector_ge20 = methane_vector_ge20
         self.computed.d_methane_vector_le20 = methane_vector_le20
+        self.computed.d_n2o_emission = n2o_vector
 
-        if self.parameters.c_n2o_equation is not None:
-            n2o_emission = \
-                nrc.n2o_diet(self.parameters.c_model_final_weight,
-                             self.parameters.c_n2o_equation) / self.parameters.dmi
-        else:
-            n2o_emission = 0
-        self.computed.cst_n2o_emission = n2o_emission
+        # if self.parameters.c_n2o_equation is not None:
+        #     n2o_emission = \
+        #         nrc.n2o_diet(self.parameters.c_model_final_weight,
+        #                      self.parameters.c_n2o_equation) / self.parameters.dmi
+        # else:
+        #     n2o_emission = 0
+        # self.computed.cst_n2o_emission = n2o_emission
 
         # Climate change impact adding methane and N2O for each ingredient
         env_impact_matrix = self.data.d_lca_ing_map.copy()
@@ -757,11 +780,11 @@ class ModelLCA(Model):
             if self.parameters.e_forage_sense == 'L':
                 env_impact_matrix[self.data.headers_lca_lib.s_LCA_GHG] = \
                     env_impact_matrix[self.data.headers_lca_lib.s_LCA_GHG] + self.computed.d_methane_vector_le20 \
-                    + n2o_emission
+                    + self.computed.d_n2o_emission
             else:
                 env_impact_matrix[self.data.headers_lca_lib.s_LCA_GHG] = \
                     env_impact_matrix[self.data.headers_lca_lib.s_LCA_GHG] + self.computed.d_methane_vector_ge20 \
-                    + n2o_emission
+                    + self.computed.d_n2o_emission
 
         # Normalizing env impacts
         if self.parameters.c_normalize:
@@ -879,8 +902,10 @@ class ModelLCA(Model):
             sol['Converter (DMI * t)/(SBWf)'] = units_coverter
             sol_methane_feed = {}
             sol["Methane Total [kgCO2eq/kg Animal]"] = 0
+            sol["N2O Total [kgCO2eq/kg Animal]"] = 0
             env_impact_matrix = self.data.d_lca_ing_map.copy()
             if self.parameters.c_methane_equation is not None:
+                n2o_vector = dict(zip(self.data.ingredient_ids, self.computed.d_n2o_emission))
                 if self.parameters.e_forage_sense == "L":
                     methane_vector = dict(zip(self.data.ingredient_ids, self.computed.d_methane_vector_le20))
                 else:
@@ -889,19 +914,22 @@ class ModelLCA(Model):
                     sol[f'Methane ing {i}'] = methane_vector[i]
                     sol["Methane Total [kgCO2eq/kg Animal]"] += methane_vector[i] * self._diet.v_x[i].value * \
                                                                 units_coverter
+                    sol["N2O Total [kgCO2eq/kg Animal]"] += n2o_vector[i] * self._diet.v_x[i].value * \
+                                                            units_coverter
 
                 if self.parameters.e_forage_sense == 'L':
                     env_impact_matrix[self.data.headers_lca_lib.s_LCA_GHG] = \
                         env_impact_matrix[self.data.headers_lca_lib.s_LCA_GHG] \
                         + self.computed.d_methane_vector_le20 \
-                        + self.computed.cst_n2o_emission
+                        + self.computed.d_n2o_emission
                 else:
                     env_impact_matrix[self.data.headers_lca_lib.s_LCA_GHG] = \
                         env_impact_matrix[self.data.headers_lca_lib.s_LCA_GHG] \
                         + self.computed.d_methane_vector_ge20 \
-                        + self.computed.cst_n2o_emission
+                        + self.computed.d_n2o_emission
 
-            sol["N2O Total [kgCO2eq/kg Animal]"] = self.computed.cst_n2o_emission * units_coverter
+            # sol["N2O Total [kgCO2eq/kg Animal]"] += self.computed.d_n2o_emission[i] * self._diet.v_x[i].value * \
+            #                                         units_coverter
 
             # # Normalizing env impacts
             # if self.parameters.c_normalize:

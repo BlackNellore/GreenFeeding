@@ -260,7 +260,10 @@ class NRC_eq:
             return self.nrc_handler.pe_ndf(*args)
 
     @staticmethod
-    def ch4_diet(fat, cp, ash, ndf, starch, sugars, oa, ing_id, sbw, forage, dmi):
+    def ch4_diet(fat, cp, ash, ndf, starch, sugars, oa, ing_id, sbw, forage, dmi, de):
+        # Enteric CH4 IPCC Tier 2
+        # 34 -> kg CH4 / kg CO2
+        # 55.65 -> MJ/kg CH4
         convert = 34 * 0.01 / 55.65
         bw = sbw / 0.96
         cho = max(1 - (cp + fat + ash), 0)
@@ -269,18 +272,35 @@ class NRC_eq:
         feed_ge = (4.73 * ndf + 3.82 * (cho - ndf) + 12.48 * fat + 6.29 * cp) * dmi  # Mcal/Kg DM Moraes et al 2014
         ch4 = -35 + 0.08 * bw + 1.20 * forage * 100 - 15 * dmi * fat + 3.14 * feed_ge
         ch4 = ch4 * convert / dmi
-        return [ch4, ch4]
+
+        # CH4 from manure management IPCC Tier2
+        # EF = VS * Bo * 0.67 [kg CH4/m3 CH4] * MCF, EF [kg CH4 / animal]
+        de_fix = min(1, de)
+        ash_fix = min(1, ash)
+        vs = (feed_ge * (1 - de_fix) + 0.04 * feed_ge) * (1 - ash_fix) / 18.45  # kg DM / animal, 18.45 [MJ / kg DM]
+        bo = 0.18  # [m3 CH4 / kg VS], Western Other cattle table 10.A-5
+        MCF = 0.015  # Dry lot Temperate, Table 10.17
+        ch4_manure = 0.67 * vs * bo * MCF * convert
+
+        return [ch4 + ch4_manure, ch4 + ch4_manure]
 
     @staticmethod
-    def n2o_diet(animal_final_weight, n2o_eq):
+    def n2o_diet(animal_final_weight, n2o_eq, fat, cp, ash, ndf, starch, sugars, oa, ing_id, sbw, forage, dmi):
         # IPCC Tier 1
-        # 300kg CO2eq/ kg N2O
+        # 298 CO2eq/ kg N2O
         # 0.33 [kg Nex/Mg animal]
         # animal[kg]/1000 [Mg]
-        # 0.02 [kg N2O/kg Nex]
 
+        # IPCC Tier 2
+        # 0.02 [kg N2O/kg Nex] (Dry lot) EF3
+        # 0.07 -> N retention "other cattle"
+        # 18.45 -> MJ / kg DM
+        # 6.25 -> conversion protein to N
+        # 44/28 -> N2O-N emissions to N2O emissions
+        cho = max(1 - (cp + fat + ash), 0)
+        feed_ge = (4.73 * ndf + 3.82 * (cho - ndf) + 12.48 * fat + 6.29 * cp) * dmi  # Mcal/Kg DM Moraes et al 2014
         if n2o_eq == "IPCC2006":
-            return 0.02 * 0.33 * animal_final_weight * 298 / 1000  # kg CO2eq/day
+            return 0.02 * ((1 - 0.07) * (feed_ge * cp) / (18.45 * 6.25)) * (44 / 28) * 298  # kg CO2eq/day DM
         else:
             return 0.02 * 0.33 * animal_final_weight * 298 / 1000
 
