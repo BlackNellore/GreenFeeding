@@ -298,7 +298,7 @@ class NRC_eq:
         # 6.25 -> conversion protein to N
         # 44/28 -> N2O-N emissions to N2O emissions
         cho = max(1 - (cp + fat + ash), 0)
-        feed_ge = (4.73 * ndf + 3.82 * (cho - ndf) + 12.48 * fat + 6.29 * cp) * dmi  # Mcal/Kg DM Moraes et al 2014
+        feed_ge = (4.73 * ndf + 3.82 * (cho - ndf) + 12.48 * fat + 6.29 * cp)   # Mcal/Kg DM Moraes et al 2014
         if n2o_eq == "IPCC2006":
             return 0.02 * ((1 - 0.07) * (feed_ge * cp) / (18.45 * 6.25)) * (44 / 28) * 298  # kg CO2eq/day DM
         else:
