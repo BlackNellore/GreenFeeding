@@ -915,7 +915,7 @@ class ModelLCA(Model):
                     sol["Methane Total [kgCO2eq/kg Animal]"] += methane_vector[i] * self._diet.v_x[i].value * \
                                                                 units_coverter
                     sol["N2O Total [kgCO2eq/kg Animal]"] += n2o_vector[i] * self._diet.v_x[i].value * \
-                                                            units_coverter
+                                                            units_coverter * 1
 
                 if self.parameters.e_forage_sense == 'L':
                     env_impact_matrix[self.data.headers_lca_lib.s_LCA_GHG] = \
