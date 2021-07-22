@@ -5,6 +5,7 @@ from model.output_handler import Output
 from model.lp_model import model_factory
 from optimizer.numerical_methods import Searcher, Status, Algorithms
 import logging
+from tqdm import tqdm
 
 INPUT = {}
 OUTPUT = None
@@ -34,7 +35,7 @@ class Diet:
 
     def run(self):
         logging.info("Iterating through scenarios")
-        for scenario in data_scenario.values:
+        for scenario in tqdm(data_scenario.values, total=data_scenario.shape[0]):
 
             parameters = dict(zip(headers_scenario, scenario))
             if parameters[headers_scenario.s_id] < 0:
