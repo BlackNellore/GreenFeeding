@@ -423,6 +423,18 @@ class Searcher:
                 msg = f"multi objective lb={lb}, ub={ub}, algorithm={algorithm}, max f1"
                 msg += f", forage = {v}"
 
+                # SPECIFIC MULTIOBJECTIVE ESCAPE
+                if self._model.parameters.c_ei_weight >= 0:
+                    self._model.set_obj_weights(1.0 - self._model.parameters.c_ei_weight,
+                                                self._model.parameters.c_ei_weight)
+                    sol_vec = getattr(self, algorithm)(lb, ub, tol, uncertain_bounds=True, mode="BF")
+                    status, solution = self.get_sol_results(lca_id, sol_vec, best=True)
+                    if solution is None:
+                        logging.error(f"Model is infeasible for forage concentration {v} 50%")
+                        continue
+                    _solutions_multiobjective.append(solution)
+                    continue
+
                 sol_vec = getattr(self, algorithm)(lb, ub, tol, uncertain_bounds=True, mode="BF")  # max f1
                 status, solution = self.get_sol_results(lca_id, sol_vec, best=True)  # get f1_ub, f2_lb
                 if solution is None:

@@ -154,6 +154,7 @@ class Data:
         s_Methane_Equation: str
         s_N2O_Equation: str
         s_Normalize: str
+        s_EI_weight: str
 
     headers_feed_lib: IngredientProperties = None  # Feed Library
     headers_feed_scenario: ScenarioFeedProperties = None  # Feeds

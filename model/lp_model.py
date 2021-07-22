@@ -582,6 +582,7 @@ class ModelLCA(Model):
         c_methane_equation: str = None  # Currently only option "IPCC2006" supported
         c_n2o_equation: str = None  # Currently only option "IPCC2006" supported
         c_normalize: bool = None  # true or false to normalize c_lca_ing_map by column (LCA)
+        c_ei_weight: float = None
 
         v_lca_weight: float = 0.0
         v_obj_weight: float = 1.0
@@ -602,6 +603,7 @@ class ModelLCA(Model):
             self.c_n2o_equation = lca_dict[headers.s_N2O_Equation].values[0]
             self.c_methane_equation = lca_dict[headers.s_Methane_Equation].values[0]
             self.c_normalize = lca_dict[headers.s_Normalize].values[0]
+            self.c_ei_weight = lca_dict[headers.s_EI_weight].values[0]
 
     class Data(Model.Data):
         d_forage: dict = None
