@@ -425,7 +425,7 @@ class Searcher:
 
                 # SPECIFIC MULTIOBJECTIVE ESCAPE
                 if self._model.parameters.c_ei_weight >= 0:
-                    self._model.set_obj_weights(1.0 - self._model.parameters.c_ei_weight,
+                    self._model.set_obj_weights(self._model.parameters.c_profit_weight,
                                                 self._model.parameters.c_ei_weight)
                     sol_vec = getattr(self, algorithm)(lb, ub, tol, uncertain_bounds=True, mode="BF")
                     status, solution = self.get_sol_results(lca_id, sol_vec, best=True)

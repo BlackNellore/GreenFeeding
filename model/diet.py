@@ -35,7 +35,9 @@ class Diet:
 
     def run(self):
         logging.info("Iterating through scenarios")
-        for scenario in tqdm(data_scenario.values, total=data_scenario.shape[0]):
+        run_scenarios = ds.data_scenario[ds.data_scenario[ds.headers_scenario.s_id] > 0]
+
+        for scenario in tqdm(run_scenarios.values, total=run_scenarios.shape[0]):
 
             parameters = dict(zip(headers_scenario, scenario))
             if parameters[headers_scenario.s_id] < 0:
