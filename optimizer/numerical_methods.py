@@ -2,6 +2,7 @@ import numpy as np
 from aenum import Enum
 import logging
 from model.lp_model import Model, ModelReducedCost, ModelLCA
+from tqdm import tqdm
 
 Status = Enum('Status', 'EMPTY READY SOLVED ERROR')
 
@@ -465,9 +466,9 @@ class Searcher:
                 lca_rhs_space = list(reversed(lca_rhs_space))  # range[f2_ub, f2_lb]
                 self._model.set_obj_weights(1.0, 0.0)
                 print(f"Initializing: forage = {v}, fat constraint = {fat_sense}")
-                for rhs in lca_rhs_space:
+                for rhs in tqdm(lca_rhs_space, total=len(lca_rhs_space)):
                     stage = 1 - (rhs - f2_lb + tol * 1.5)/(f2_ub - f2_lb + tol * 1.5)
-                    print(f"stage = {stage*100:.4}%")
+                    # print(f"stage = {stage*100:.4}%")
                     self._model.set_lca_rhs(rhs, stage)
                     self.__clear_searcher()
                     msg = f"multi objective lb={lb}, ub={ub}, algorithm={algorithm}, rhs={rhs}"
