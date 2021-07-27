@@ -85,7 +85,7 @@ INPUT_FILE = {'filename': {'name': 'input.xlsx'},
 
               }
 OUTPUT_FILE = 'output.xlsx'
-SOLVER = 'cplex'
+SOLVER = 'cplex_direct'
 # RNS_FEED_PARAMETERS = {}
 RNS_FEED_PARAMETERS = {'source': 'RNS/image.RData',
 # RNS_FEED_PARAMETERS = {'source': None,
