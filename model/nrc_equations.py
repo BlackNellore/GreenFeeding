@@ -76,11 +76,15 @@ class NRC_eq:
     nrc_handler: NRC_abs = None
     comparison_Rdata: NRC_abs = None
 
+    special_ingredients: list = None
+
     def __init__(self, **kwargs):
         if len(kwargs) == 0:
             self.nrc_handler = self.StaticHandler()
         else:
-            source, report_diff, on_error = kwargs['source'], kwargs['report_diff'], kwargs['on_error']
+            source, report_diff, on_error = kwargs['source'],\
+                                                          kwargs['report_diff'], \
+                                                          kwargs['on_error']
             if source is not None:
                 try:
                     fixed_str = source
@@ -98,6 +102,7 @@ class NRC_eq:
                         self.comparison_Rdata = self.StaticHandler()
                     else:
                         self.nrc_handler = self.StaticHandler()
+
                 except rinterface.RRuntimeError as exc:
                     # 0: quit; 1: report and continue with NRC; -1: silent continue
                     if on_error == 1:
@@ -112,6 +117,9 @@ class NRC_eq:
                         raise FileNotFoundError
             else:
                 self.nrc_handler = self.StaticHandler()
+
+    def set_special_ingredients(self, ids):
+        self.special_ingredients = ids
 
     @staticmethod
     def swg(neg, sbw, final_weight=0):
@@ -225,6 +233,8 @@ class NRC_eq:
                self.pe_ndf(ph_val)
 
     def mp(self, ing_id, *args):
+        if ing_id in self.special_ingredients:
+            return self.comparison_Rdata.mp(*args)
         if self.outside_calc:
             if self.diff_report:
                 self.report_diference(self.nrc_handler.mp(ing_id), self.comparison_Rdata.mp(*args), 'MP')
@@ -235,6 +245,8 @@ class NRC_eq:
             return self.nrc_handler.mp(*args)
 
     def npn(self, ing_id, *args):
+        if ing_id in self.special_ingredients:
+            return self.comparison_Rdata.mp(*args)
         if self.outside_calc:
             if self.diff_report:
                 self.report_diference(self.nrc_handler.npn(ing_id), self.comparison_Rdata.npn(*args), 'NPN')
@@ -243,6 +255,8 @@ class NRC_eq:
             return args[0]
 
     def ttdn(self, ing_id, *args):
+        if ing_id in self.special_ingredients:
+            return self.comparison_Rdata.mp(*args)
         if self.outside_calc:
             if self.diff_report:
                 self.report_diference(self.nrc_handler.ttdn(ing_id), self.comparison_Rdata.ttdn(*args), 'TDN')
@@ -475,6 +489,9 @@ class NRC_eq:
             self.feed_CP = feed_CP
             self._feed_NPN = [self._feed_NPN[i] * feed_SP[i] * feed_CP[i]/10000 for i in range(len(feed_SP))]
             self._feed_GE = list(pandas2ri.ri2py_vector(robjects.r[f'anim.fd.GE.frac']))
+
+        def get_feed_list(self):
+            return self._feed_order
 
         @staticmethod
         def neg():

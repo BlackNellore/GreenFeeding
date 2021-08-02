@@ -95,6 +95,7 @@ class Model:
 
         results = SolverResults()
         r = slv.solve(self._diet, tee=False)
+        # r = slv.solve(self._diet, tee=False, keepfiles=False, logfile="this.log")
         # r = slv.solve(self._diet, tee=True)
         results.load(r)
         if not (results.solver.status == pyo.SolverStatus.ok and
@@ -322,6 +323,12 @@ class Model:
                                                                 self.headers_feed_scenario.s_ID,
                                                                 return_dict=True
                                                                 )
+            special_ing_list = []
+            for k, v in self.d_name_ing_map.items():
+                if "*" in v:
+                    special_ing_list.append(k)
+            nrc.set_special_ingredients(special_ing_list)
+
             if 'DM' in self.headers_feed_scenario.s_feed_cost:
                 for k in self.dc_dm_af_conversion.keys():
                     self.dc_dm_af_conversion[k] = 1
