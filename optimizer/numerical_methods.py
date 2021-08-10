@@ -397,6 +397,11 @@ class Searcher:
             else:
                 self._solutions = [self._solutions]
 
+    def set_additives_params(self, ing_id, inclusion, methane_reduction):
+        self._model: ModelLCA = self._model
+        self._model.set_ingredient_inclusion(ing_id, inclusion)
+        self._model.set_methane_reduction_factor(methane_reduction)
+
     def multi_objective(self, algorithm, lbs, ubs, tol, lca_id):
         if self._solutions is None:
             self._solutions = []
@@ -425,7 +430,7 @@ class Searcher:
                 msg += f", forage = {v}"
 
                 # SPECIFIC MULTIOBJECTIVE ESCAPE
-                if self._model.parameters.c_ei_weight >= 0:
+                if type(self._model.parameters.c_ei_weight) is float:
                     self._model.set_obj_weights(self._model.parameters.c_profit_weight,
                                                 self._model.parameters.c_ei_weight)
                     sol_vec = getattr(self, algorithm)(lb, ub, tol, uncertain_bounds=True, mode="BF")

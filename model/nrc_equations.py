@@ -274,7 +274,7 @@ class NRC_eq:
             return self.nrc_handler.pe_ndf(*args)
 
     @staticmethod
-    def ch4_diet(fat, cp, ash, ndf, starch, sugars, oa, ing_id, sbw, forage, dmi, de):
+    def ch4_diet(fat, cp, ash, ndf, starch, sugars, oa, ing_id, sbw, forage, dmi, de, methane_red_fac):
         # Enteric CH4 IPCC Tier 2
         # 34 -> kg CH4 / kg CO2
         # 55.65 -> MJ/kg CH4
@@ -285,9 +285,9 @@ class NRC_eq:
         # feed_ge = (4.15 * cho + 9.4 * fat + 5.7 * cp)  # Mcal/Kg DM
         feed_ge = (4.73 * ndf + 3.82 * (cho - ndf) + 12.48 * fat + 6.29 * cp) * dmi  # Mcal/Kg DM Moraes et al 2014
         ch4 = -35 + 0.08 * bw + 1.20 * forage * 100 - 15 * dmi * fat + 3.14 * feed_ge
-        ch4 = ch4 * convert / dmi
+        ch4 = ch4 * convert / dmi * (1.0 - methane_red_fac)
 
-        # CH4 from manure management IPCC Tier2
+        # CH4 from manure management (decomposition) IPCC Tier2
         # EF = VS * Bo * 0.67 [kg CH4/m3 CH4] * MCF, EF [kg CH4 / animal]
         de_fix = min(1, de)
         ash_fix = min(1, ash)

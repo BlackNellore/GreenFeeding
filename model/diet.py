@@ -74,9 +74,15 @@ class Diet:
                 if lb is None:
                     continue
                 logging.info(f'Optimizing with {msg}')
-                self.__single_scenario(optimizer, parameters, lb, ub, tol)
-                self.store_results(optimizer, parameters)
+                if parameters[headers_scenario.s_additive_id] > 0:
+                    # LCA Multiobjective with additives
+                    self.__multi_scenario(optimizer, parameters, lb, ub, tol, "additive")
+                else:
+                    # LCA Multiobjective simple
+                    self.__single_scenario(optimizer, parameters, lb, ub, tol)
+                    self.store_results(optimizer, parameters)
             else:
+                # Batch scenario (feeds and prices)
                 if list(ds.filter_column(data_batch,
                                          headers_batch.s_batch_id,
                                          parameters[headers_scenario.s_batch],
@@ -85,7 +91,7 @@ class Diet:
                     if lb is None:
                         continue
                 logging.info(f"Optimizing with multiobjective epsilon-constrained based on {msg}")
-                self.__multi_scenario(optimizer, parameters, lb, ub, tol)
+                self.__multi_scenario(optimizer, parameters, lb, ub, tol, "batch")
 
         _output.store()
 
@@ -118,18 +124,33 @@ class Diet:
         else:
             optimizer.run_scenario(algorithm, lb, ub, tol, parameters[headers_scenario.s_lca_id])
 
-    def __multi_scenario(self, optimizer, parameters, lb, ub, tol):
-        optimizer.clear_searcher()
-        batch_id = parameters[headers_scenario.s_batch]
-        batch_parameters = ds.filter_column(data_batch, headers_batch.s_batch_id, batch_id, int64=True)
-
-        batch_space = range(list(batch_parameters[headers_batch.s_final_period])[0] -
-                            list(batch_parameters[headers_batch.s_initial_period])[0] + 1)
-        for i in batch_space:
-            optimizer.set_batch_params(i)
-            self.__single_scenario(optimizer, parameters, lb, ub, tol)
-            self.store_results(optimizer, parameters)
+    def __multi_scenario(self, optimizer, parameters, lb, ub, tol, multi_type):
+        if multi_type == "batch":
             optimizer.clear_searcher()
+            batch_id = parameters[headers_scenario.s_batch]
+            batch_parameters = ds.filter_column(data_batch, headers_batch.s_batch_id, batch_id, int64=True)
+
+            batch_space = range(list(batch_parameters[headers_batch.s_final_period])[0] -
+                                list(batch_parameters[headers_batch.s_initial_period])[0] + 1)
+            for i in batch_space:
+                optimizer.set_batch_params(i)
+                self.__single_scenario(optimizer, parameters, lb, ub, tol)
+                self.store_results(optimizer, parameters)
+                optimizer.clear_searcher()
+        elif multi_type == "additive":
+            additive_id = parameters[headers_scenario.s_additive_id]
+            additive_scenarios = \
+                ds.data_additive_scenario.where(
+                    ds.data_additive_scenario[ds.headers_additive_scenario.s_Additive_scn_id] == additive_id)
+            for (index, row) in tqdm(additive_scenarios.iterrows(), desc='Running additive scenarios'):
+                kwargs = dict(zip(['ing_id', 'inclusion', 'methane_reduction'],
+                                  row[[ds.headers_additive_scenario.s_ID,
+                                      ds.headers_additive_scenario.s_Inclusion,
+                                      ds.headers_additive_scenario.s_Methane_reduction
+                                  ]].array))
+                optimizer.set_additives_params(**kwargs)
+                self.__single_scenario(optimizer, parameters, lb, ub, tol)
+                self.store_results(optimizer, parameters)
 
     @staticmethod
     def store_results(optimizer, parameters):

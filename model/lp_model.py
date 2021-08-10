@@ -7,6 +7,7 @@ import math, statistics
 import pyomo.environ as pyo
 from pyomo.opt.results import SolverResults
 import pandas as pd
+import numpy
 
 default_special_cost = 10.0
 
@@ -207,7 +208,7 @@ class Model:
         # From outer scope
         [p_id, p_feed_scenario, p_batch, p_breed, p_sbw, p_feed_time, p_target_weight, p_bcs, p_be, p_l, p_sex, p_a2,
          p_ph, p_selling_price, p_algorithm, p_identifier, p_lb, p_ub, p_tol, p_dmi_eq, p_obj, p_find_reduced_cost,
-         p_ing_level, p_lca_id] = [None for i in range(24)]
+         p_ing_level, p_lca_id, p_additive_id] = [None for i in range(25)]
 
         init_parameters = None
 
@@ -220,13 +221,16 @@ class Model:
                 [self.p_id, self.p_feed_scenario, self.p_batch, self.p_breed, self.p_sbw, self.p_feed_time,
                  self.p_target_weight, self.p_bcs, self.p_be, self.p_l, self.p_sex, self.p_a2, self.p_ph,
                  self.p_selling_price, self.p_algorithm, self.p_identifier, self.p_lb, self.p_ub, self.p_tol,
-                 self.p_dmi_eq, self.p_obj, self.p_find_reduced_cost, self.p_ing_level, self.p_lca_id] = \
+                 self.p_dmi_eq, self.p_obj, self.p_find_reduced_cost, self.p_ing_level, self.p_lca_id,
+                 self.p_additive_id]\
+                    = \
                     parameters.values()
             elif isinstance(parameters, list):
                 [self.p_id, self.p_feed_scenario, self.p_batch, self.p_breed, self.p_sbw, self.p_feed_time,
                  self.p_target_weight, self.p_bcs, self.p_be, self.p_l, self.p_sex, self.p_a2, self.p_ph,
                  self.p_selling_price, self.p_algorithm, self.p_identifier, self.p_lb, self.p_ub, self.p_tol,
-                 self.p_dmi_eq, self.p_obj, self.p_find_reduced_cost, self.p_ing_level, self.p_lca_id] = \
+                 self.p_dmi_eq, self.p_obj, self.p_find_reduced_cost, self.p_ing_level, self.p_lca_id,
+                 self.p_additive_id] = \
                     parameters
 
         def compute_nrc_parameters(self):
@@ -591,6 +595,10 @@ class ModelLCA(Model):
         c_normalize: bool = None  # true or false to normalize c_lca_ing_map by column (LCA)
         c_ei_weight: float = None
         c_profit_weight: float = None
+        c_ei_ref: float = None
+        c_carbon_cost: float = None
+
+        v_methane_reduction_factor: float = 0.0
 
         v_lca_weight: float = 0.0
         v_obj_weight: float = 1.0
@@ -599,6 +607,13 @@ class ModelLCA(Model):
         v_stage: float = None
 
         e_forage_sense: str = None
+
+        @staticmethod
+        def convert_to_float(var):
+            if type(var) is int or type(var) is numpy.int64:
+                return float(var)
+            else:
+                return var
 
         def set_env_impacts_properties(self, lca_dict, headers: data_handler.Data.LCAScenario):
             self.c_env_impacts_weights = {}
@@ -611,8 +626,10 @@ class ModelLCA(Model):
             self.c_n2o_equation = lca_dict[headers.s_N2O_Equation].values[0]
             self.c_methane_equation = lca_dict[headers.s_Methane_Equation].values[0]
             self.c_normalize = lca_dict[headers.s_Normalize].values[0]
-            self.c_ei_weight = lca_dict[headers.s_EI_weight].values[0]
-            self.c_profit_weight = lca_dict[headers.s_Profit_weight].values[0]
+            self.c_ei_weight = self.convert_to_float(lca_dict[headers.s_EI_weight].values[0])
+            self.c_profit_weight = self.convert_to_float(lca_dict[headers.s_Profit_weight].values[0])
+            self.c_ei_ref = self.convert_to_float(lca_dict[headers.s_EI_ref_carbon_price].values[0])
+            self.c_carbon_cost = self.convert_to_float(lca_dict[headers.s_Carbon_cost].values[0])
 
     class Data(Model.Data):
         d_forage: dict = None
@@ -624,6 +641,7 @@ class ModelLCA(Model):
         ing_starch: dict = None
         ing_sugars: dict = None
         ing_oa: dict = None
+        carbon_cost_bool: dict = None
 
         headers_lca_lib: data_handler.Data.LCALib = None
 
@@ -655,6 +673,7 @@ class ModelLCA(Model):
                 raise IndexError("LCA Library does not match all ingredients in Feeds")
             self.d_lca_ing_map.pop(self.ds.headers_lca_lib.s_ing_id)
             self.d_lca_ing_map.pop(self.ds.headers_lca_lib.s_name)
+            self.carbon_cost_bool = self.d_lca_ing_map.pop(self.headers_lca_lib.s_Carbon_cost_bool)
 
             # Properties for methane emission calculation
             headers_feed_lib = self.ds.headers_feed_lib
@@ -707,8 +726,7 @@ class ModelLCA(Model):
         d_n2o_emission: dict = None
         env_impact_array: list = None
         profit_array: list = None
-
-        # cst_n2o_emission: float = None
+        d_ings_carbon_cost_bool: dict = None
 
     def __init__(self, out_ds, parameters):
         Model.__init__(self, None, None)
@@ -736,6 +754,9 @@ class ModelLCA(Model):
         if not Model._compute_parameters(self):
             return False
 
+        self.computed.d_ings_carbon_cost_bool = dict(zip(self.data.ingredient_ids,
+                                                         self.data.carbon_cost_bool.array))
+
         # computing methane
         methane_vector_ge20 = []
         methane_vector_le20 = []
@@ -753,21 +774,23 @@ class ModelLCA(Model):
                                                           (self.parameters.p_sbw + self.parameters.c_model_final_weight)/2,
                                                           self.data.d_forage[i],
                                                           self.parameters.dmi,
-                                                          self.data.ing_tdn[i])
+                                                          self.data.ing_tdn[i],
+                                                          self.parameters.v_methane_reduction_factor
+                                                          )
                 n2o = nrc.n2o_diet(self.parameters.c_model_final_weight,
-                                          self.parameters.c_n2o_equation,
-                                          self.data.ing_fat[i],
-                                          self.data.ing_cp[i],
-                                          self.data.ing_ash[i],
-                                          self.data.ing_ndf[i],
-                                          self.data.ing_starch[i],
-                                          self.data.ing_sugars[i],
-                                          self.data.ing_oa[i],
-                                          i,
-                                          (self.parameters.p_sbw + self.parameters.c_model_final_weight) / 2,
-                                          self.data.d_forage[i],
-                                          self.parameters.dmi
-                                          )
+                                   self.parameters.c_n2o_equation,
+                                   self.data.ing_fat[i],
+                                   self.data.ing_cp[i],
+                                   self.data.ing_ash[i],
+                                   self.data.ing_ndf[i],
+                                   self.data.ing_starch[i],
+                                   self.data.ing_sugars[i],
+                                   self.data.ing_oa[i],
+                                   i,
+                                   (self.parameters.p_sbw + self.parameters.c_model_final_weight) / 2,
+                                   self.data.d_forage[i],
+                                   self.parameters.dmi
+                                   )
                 methane_vector_ge20.append(methane_ge20)
                 methane_vector_le20.append(methane_le20)
                 n2o_vector.append(n2o)
@@ -846,9 +869,21 @@ class ModelLCA(Model):
     def _update_model(self):
         Model._update_model(self)
         self._diet.p_model_offset = self.computed.cst_obj * self.parameters.v_obj_weight
-        for i in self._diet.s_var_set:
-            self._diet.p_model_cost[i] = self.computed.dc_obj_func[i] * self.parameters.v_obj_weight \
-                                         + (-1.0) * self.computed.env_impact_array[i] * self.parameters.v_lca_weight
+        if type(self.parameters.c_ei_ref) is not float or \
+                type(self.parameters.v_lca_weight) is not float or \
+                type(self.parameters.c_carbon_cost) is not float:
+            for i in self._diet.s_var_set:
+                self._diet.p_model_cost[i] = self.computed.dc_obj_func[i] * self.parameters.v_obj_weight \
+                                             + (-1.0) * self.computed.env_impact_array[i] * self.parameters.v_lca_weight
+        else:
+            for i in self._diet.s_var_set:
+                if self.computed.d_ings_carbon_cost_bool[i]:
+                    self._diet.p_model_cost[i] = self.computed.dc_obj_func[i] * self.parameters.v_obj_weight + \
+                                                 (-1.0) * self.computed.env_impact_array[i] * \
+                                                 self.parameters.v_lca_weight * self.parameters.c_carbon_cost * \
+                                                 self.parameters.c_model_final_weight
+                else:
+                    self._diet.p_model_cost[i] = self.computed.dc_obj_func[i] * self.parameters.v_obj_weight
 
         if self.parameters.e_forage_sense == "G":
             self._diet.c_forage_ge.activate()
@@ -881,6 +916,13 @@ class ModelLCA(Model):
         """ ge_or_le = "L" or "G" """
         self.parameters.e_forage_sense = ge_or_le
         self.set_lca_rhs(100000, None)
+
+    def set_ingredient_inclusion(self, ing_id, inclusion):
+        self._diet.p_model_lb[ing_id] = inclusion
+        self._diet.p_model_ub[ing_id] = inclusion
+
+    def set_methane_reduction_factor(self, factor):
+        self.parameters.v_methane_reduction_factor = factor
 
     @staticmethod
     def get_obj_sol(solution):
@@ -956,10 +998,21 @@ class ModelLCA(Model):
             for index, row in env_impact_vector.iterrows():
                 sol[f"LCA emited/kg Animal - {index}"] = row[0]
             if self.parameters.v_stage is None:
+                sol["Env Impact weight (Multi Objective)"] = self.parameters.v_lca_weight
+                sol["Profit weight (Multi Objective)"] = self.parameters.v_obj_weight
+            else:
                 self.parameters.v_stage = self.parameters.v_lca_weight
-            sol["Env Impact weight (Multi Objective)"] = self.parameters.v_stage
-            sol["Profit weight (Multi Objective)"] = 1 - self.parameters.v_stage
-            sol["Profit"] = sol["obj_revenue"] - sol["obj_cost"]
+                sol["Env Impact weight (Multi Objective)"] = self.parameters.v_stage
+                sol["Profit weight (Multi Objective)"] = 1 - self.parameters.v_stage
+            sol["Animal Revenue"] = sol["obj_revenue"]
+            sol["Diet Cost"] = -sol["obj_cost"]
+            if type(self.parameters.c_ei_ref) is float and type(self.parameters.c_carbon_cost) is float:
+                sol["Carbon Revenue"] = (- sol[f"LCA emited/kg Animal - {self.data.headers_lca_lib.s_LCA_GHG}"]
+                                         + self.parameters.c_ei_ref) * self.parameters.c_carbon_cost * \
+                                        self.parameters.c_model_final_weight
+            else:
+                sol["Carbon Revenue"] = 0
+            sol["Profit"] = sol["Animal Revenue"] + sol["Diet Cost"] + sol["Carbon Revenue"]
             sol["Obj Func [weighthed objs]"] = sol["Profit"] * sol["Profit weight (Multi Objective)"] + \
                                                (-1) * sol["Env Impact weight (Multi Objective)"] * sol[
                                                    "EI Obj (weighted impacts)"]

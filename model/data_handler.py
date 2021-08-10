@@ -65,6 +65,7 @@ class Data:
         s_find_reduced_cost: str
         s_ing_level: str
         s_lca_id: str
+        s_additive_id: str
 
     # Sheet Feeds
     class ScenarioFeedProperties(NamedTuple):
@@ -107,6 +108,30 @@ class Data:
         s_pef: str
         s_NPN: str
 
+    # # Sheet LCA Library
+    # class LCALib(NamedTuple):
+    #     s_ing_id: str
+    #     s_name: str
+    #     s_LCA_phosphorus: str
+    #     s_LCA_renewable_fossil: str
+    #     s_LCA_GHG: str
+    #     s_LCA_acidification: str
+    #     s_LCA_eutrophication: str
+    #     s_LCA_land_competition: str
+
+    # # Sheet LCA Scenario
+    # class LCAScenario(NamedTuple):
+    #     s_ID: str
+    #     s_LCA_phosphorus_weight: str
+    #     s_LCA_renewable_fossil_weight: str
+    #     s_LCA_GHG_weight: str
+    #     s_LCA_acidification_weight: str
+    #     s_LCA_eutrophication_weight: str
+    #     s_LCA_land_competition_weight: str
+    #     s_Methane_Equation: str
+    #     s_N2O_Equation: str
+    #     s_Normalize: str
+
     # Sheet LCA Library
     class LCALib(NamedTuple):
         s_ing_id: str
@@ -117,30 +142,7 @@ class Data:
         s_LCA_acidification: str
         s_LCA_eutrophication: str
         s_LCA_land_competition: str
-
-    # Sheet LCA Scenario
-    class LCAScenario(NamedTuple):
-        s_ID: str
-        s_LCA_phosphorus_weight: str
-        s_LCA_renewable_fossil_weight: str
-        s_LCA_GHG_weight: str
-        s_LCA_acidification_weight: str
-        s_LCA_eutrophication_weight: str
-        s_LCA_land_competition_weight: str
-        s_Methane_Equation: str
-        s_N2O_Equation: str
-        s_Normalize: str
-
-    # Sheet LCA Library
-    class LCALib(NamedTuple):
-        s_ing_id: str
-        s_name: str
-        s_LCA_phosphorus: str
-        s_LCA_renewable_fossil: str
-        s_LCA_GHG: str
-        s_LCA_acidification: str
-        s_LCA_eutrophication: str
-        s_LCA_land_competition: str
+        s_Carbon_cost_bool: str
 
     # Sheet LCA Scenario
     class LCAScenario(NamedTuple):
@@ -156,6 +158,16 @@ class Data:
         s_Normalize: str
         s_EI_weight: str
         s_Profit_weight: str
+        s_EI_ref_carbon_price: str
+        s_Carbon_cost: str
+
+    # Sheet Additives Scenario
+    class AdditivesScenario(NamedTuple):
+        s_Additive_scn_id: str
+        s_ID: str
+        s_Feedname: str
+        s_Inclusion: str
+        s_Methane_reduction: str
 
     headers_feed_lib: IngredientProperties = None  # Feed Library
     headers_feed_scenario: ScenarioFeedProperties = None  # Feeds
@@ -172,6 +184,9 @@ class Data:
     headers_lca_lib: LCALib = None  # LCA
     data_lca_lib: pandas.DataFrame = None  # LCA Library
 
+    headers_additive_scenario: AdditivesScenario = None  # Additives
+    data_additive_scenario: pandas.DataFrame = None  # Additives
+
     data_series = {}  # batch dictionary
 
     batchScenarioCandidate = None
@@ -186,7 +201,8 @@ class Data:
                  sheet_scenario,
                  sheet_batch,
                  sheet_lca,
-                 sheet_lca_lib):
+                 sheet_lca_lib,
+                 sheet_additives_scenario):
         """
         Read excel file
         :param filename : {'name'}
@@ -317,6 +333,10 @@ class Data:
         self.data_lca_scenario = pandas.read_excel(excel_file, sheet_lca['name'])
         self.headers_lca_scenario = self.LCAScenario(*(list(self.data_lca_scenario)))
 
+        # Additives Scenario Sheet
+        self.data_additive_scenario = pandas.read_excel(excel_file, sheet_additives_scenario['name'])
+        self.headers_additive_scenario = self.AdditivesScenario(*(list(self.data_additive_scenario)))
+
         # LCA Library Sheet
         data_lca_lib = pandas.read_excel(excel_file, sheet_lca_lib['name'])
         self.headers_lca_lib = self.LCALib(*(list(data_lca_lib)))
@@ -350,27 +370,27 @@ class Data:
         # Saving info in the log
         logging.info("\n\nAll data read")
 
-    def datasets(self):
-        """
-        Return datasets
-        :return list : [data_feed_lib, data_feed_scenario, data_scenario, data_lca_lib, data_lca_scenario]
-        """
-        return [self.data_feed_lib,
-                self.data_feed_scenario,
-                self.data_scenario]
+    # def datasets(self):
+    #     """
+    #     Return datasets
+    #     :return list : [data_feed_lib, data_feed_scenario, data_scenario, data_lca_lib, data_lca_scenario]
+    #     """
+    #     return [self.data_feed_lib,
+    #             self.data_feed_scenario,
+    #             self.data_scenario]
 
-    def headers(self):
-        """
-        Return datasets' headers
-        :return list : [headers_feed_lib,
-                        headers_feed_scenario,
-                        headers_scenario,
-                        headers_lca_lib,
-                        headers_lca_scenario]
-        """
-        return [self.headers_feed_lib,
-                self.headers_feed_scenario,
-                self.headers_scenario]
+    # def headers(self):
+    #     """
+    #     Return datasets' headers
+    #     :return list : [headers_feed_lib,
+    #                     headers_feed_scenario,
+    #                     headers_scenario,
+    #                     headers_lca_lib,
+    #                     headers_lca_scenario]
+    #     """
+    #     return [self.headers_feed_lib,
+    #             self.headers_feed_scenario,
+    #             self.headers_scenario]
 
     @staticmethod
     def get_series_from_batch(batch, col_name, period):
