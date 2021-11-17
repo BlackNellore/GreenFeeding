@@ -1,12 +1,11 @@
-OUTPUT_FILE = 'output.xlsx'
-SOLVER = 'cplex'
+SOLVER = 'glpk'
 # RNS_FEED_PARAMETERS = {}
 RNS_FEED_PARAMETERS = {'source': 'RNS/image.RData',
                        # RNS_FEED_PARAMETERS = {'source': None,
                        'report_diff': False,
                        'on_error': 0}  # 0: quit; 1: report and continue with NRC; -1: silent continue;
 
-INPUT_FILE = {'filename': {'name': 'input.xlsx'},
+INPUT_FILE = {'filename': {'name': 'Input.xlsx'},
               'sheet_feed_lib': {
                   'name': 'Feed Library',
                   'headers': [

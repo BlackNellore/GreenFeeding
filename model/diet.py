@@ -56,7 +56,7 @@ class Diet:
                                   parameters[headers_scenario.s_lca_id])
             logging.info("Initializing numerical methods")
             optimizer = Searcher(model, batch)
-            
+
             if parameters[headers_scenario.s_algorithm] == "GSS":
                 msg = "Golden-Section Search algorithm"
             elif parameters[headers_scenario.s_algorithm] == "BF":
@@ -139,15 +139,14 @@ class Diet:
                 optimizer.clear_searcher()
         elif multi_type == "additive":
             additive_id = parameters[headers_scenario.s_additive_id]
-            additive_scenarios = \
-                ds.data_additive_scenario.where(
-                    ds.data_additive_scenario[ds.headers_additive_scenario.s_Additive_scn_id] == additive_id)
+            additive_scenarios = ds.data_additive_scenario[
+                ds.data_additive_scenario[ds.headers_additive_scenario.s_Additive_scn_id] == additive_id]
             for (index, row) in tqdm(additive_scenarios.iterrows(), desc='Running additive scenarios'):
                 kwargs = dict(zip(['ing_id', 'inclusion', 'methane_reduction'],
                                   row[[ds.headers_additive_scenario.s_ID,
-                                      ds.headers_additive_scenario.s_Inclusion,
-                                      ds.headers_additive_scenario.s_Methane_reduction
-                                  ]].array))
+                                       ds.headers_additive_scenario.s_Inclusion,
+                                       ds.headers_additive_scenario.s_Methane_reduction
+                                       ]].array))
                 optimizer.set_additives_params(**kwargs)
                 self.__single_scenario(optimizer, parameters, lb, ub, tol)
                 self.store_results(optimizer, parameters)
@@ -163,10 +162,9 @@ class Diet:
             logging.warning("Bad Status: {0}, {1}".format(status, parameters))
 
 
-def config(input_info, output_info):
-    global INPUT, OUTPUT
+def config(input_info):
+    global INPUT
     INPUT = input_info
-    OUTPUT = output_info
 
 
 if __name__ == "__main__":
