@@ -19,7 +19,6 @@ headers_scenario: data_handler.Data.ScenarioParameters  # Scenario
 data_batch: pandas.DataFrame  # Scenario
 headers_batch: data_handler.Data.BatchParameters  # Scenario
 
-
 class Diet:
 
     @staticmethod
@@ -34,18 +33,9 @@ class Diet:
         logging.info(msg)
 
     def run(self):
-        logging.info("Iterating through scenarios")
-        run_scenarios = ds.data_scenario[ds.data_scenario[ds.headers_scenario.s_id] > 0]
 
-        for scenario in tqdm(run_scenarios.values, total=run_scenarios.shape[0]):
 
-            parameters = dict(zip(headers_scenario, scenario))
-            if parameters[headers_scenario.s_id] < 0:
-                continue
-            batch = False
-            if parameters[headers_scenario.s_batch] > 0:
-                batch = True
-
+        def run_model():
             logging.info("Current Scenario:")
             logging.info("{}".format(parameters))
 
@@ -64,7 +54,7 @@ class Diet:
             else:
                 logging.error("Algorithm {} not found, scenario skipped".format(
                     parameters[headers_scenario.s_algorithm]))
-                continue
+                return False
 
             tol = parameters[headers_scenario.s_tol]
             lb = parameters[headers_scenario.s_lb]
@@ -72,7 +62,7 @@ class Diet:
             if not batch:
                 lb, ub = self.refine_bounds(optimizer, parameters)
                 if lb is None:
-                    continue
+                    return False
                 logging.info(f'Optimizing with {msg}')
                 if parameters[headers_scenario.s_additive_id] > 0:
                     # LCA Multiobjective with additives
@@ -89,13 +79,45 @@ class Diet:
                                          int64=True)[headers_batch.s_only_costs_batch])[0]:
                     lb, ub = self.refine_bounds(optimizer, parameters, batch)
                     if lb is None:
-                        continue
+                        return False
                 logging.info(f"Optimizing with multiobjective epsilon-constrained based on {msg}")
                 self.__multi_scenario(optimizer, parameters, lb, ub, tol, "batch")
+
+            return True
+
+        logging.info("Iterating through scenarios")
+        run_scenarios = ds.data_scenario[ds.data_scenario[ds.headers_scenario.s_id] > 0]
+
+        for scenario in tqdm(run_scenarios.iterrows(), total=run_scenarios.shape[0]):
+            original_parameters = dict(zip(headers_scenario, scenario[1].values))
+            parameters = dict(zip(headers_scenario, scenario[1].values))
+            if parameters[headers_scenario.s_id] < 0:
+                continue
+            batch = False
+            if parameters[headers_scenario.s_batch] > 0:
+                batch = True
+
+            if parameters[headers_scenario.s_sensitivity_analysis] is None:
+                if not run_model():
+                    continue
+            else:
+                df_sa = pandas.read_csv(parameters[headers_scenario.s_sensitivity_analysis])
+                sa_map = ds.search_spreadsheet(df_sa.columns.to_list())
+                dirName = ""
+                for row in tqdm(df_sa.iterrows(), total=df_sa.shape[0]):
+                    for k, v in sa_map.items():
+                        ds.data_holder[v[0]].loc[v[1],v[2]] = row[1][k]
+                    subscenario = ds.data_scenario[ds.data_scenario[ds.headers_scenario.s_id] == scenario[1][ds.headers_scenario.s_id]]
+                    parameters = dict(zip(headers_scenario, subscenario.values[0]))
+                    parameters[headers_scenario.s_identifier] = f"{parameters[headers_scenario.s_identifier]}_{int(row[1]['ID'])}"
+                    if not run_model():
+                        continue
+                    dirName = _output.store_partial(row[1]['ID'], dirName)
 
         _output.store()
 
         logging.info("END")
+
 
     @staticmethod
     def refine_bounds(optimizer, parameters, batch=False):
@@ -132,7 +154,7 @@ class Diet:
 
             batch_space = range(list(batch_parameters[headers_batch.s_final_period])[0] -
                                 list(batch_parameters[headers_batch.s_initial_period])[0] + 1)
-            for i in batch_space:
+            for i in tqdm(batch_space):
                 optimizer.set_batch_params(i)
                 self.__single_scenario(optimizer, parameters, lb, ub, tol)
                 self.store_results(optimizer, parameters)

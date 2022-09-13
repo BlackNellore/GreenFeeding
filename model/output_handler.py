@@ -49,6 +49,34 @@ class Output:
         for f in files:
             os.rename(self.temp_dir + f, dirName + "/" + f)
 
+    def store_partial(self, id_sv, dn=""):
+        # create a new folder in /Output/ and name it YYYY_MM_DD_HHMMSS
+        output_folder = './Output/'
+
+        if not os.path.exists(output_folder):
+            os.mkdir(output_folder)
+        dirName = dn
+        if dirName == "":
+            now = datetime.now()
+            now = now.strftime("%Y_%m_%d_%H%M%S")
+            dirName = output_folder + now
+
+            try:
+                os.mkdir(dirName)
+            except FileExistsError:
+                print("Directory ", dirName, " already exists.")
+
+            # copy input
+            shutil.copy('./Input.xlsx', dirName)
+
+        files = [f for f in os.listdir(self.temp_dir) if os.path.isfile(os.path.join(self.temp_dir, f))]
+
+        # move all csv files from temp_output to the new folder
+        for f in files:
+            os.rename(self.temp_dir + f, dirName + "/" + f"{f}")
+
+        return dirName
+
     def save_as_csv(self, name="", solution=[]):
         """Save solution as a csv file"""
         if type(solution) is dict:

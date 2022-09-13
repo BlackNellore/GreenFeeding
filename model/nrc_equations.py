@@ -11,9 +11,9 @@ except OSError as e:
         import os
         import platform
 
-        if ('Windows', 'Microsoft') in platform.system():
-            os.environ["R_HOME"] = 'C:/Program Files/R/R-4.0.3/bin/x64'
-            os.environ["PATH"] = "C:/Program Files/R/R-4.0.3/bin/x64" + ";" + os.environ["PATH"]
+        if 'Windows' in platform.system():
+            os.environ["R_HOME"] = 'C:/Program Files/R/R-4.2.1'
+            os.environ["PATH"] = "C:/Program Files/R/R-4.2.1/bin/x64" + ";" + os.environ["PATH"]
         import rpy2.robjects as robjects
         import rpy2.rinterface_lib.embedded as rinterface
         from rpy2.robjects import pandas2ri

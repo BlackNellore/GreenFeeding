@@ -66,6 +66,7 @@ class Data:
         s_ing_level: str
         s_lca_id: str
         s_additive_id: str
+        s_sensitivity_analysis: str
 
     # Sheet Feeds
     class ScenarioFeedProperties(NamedTuple):
@@ -108,30 +109,6 @@ class Data:
         s_pef: str
         s_NPN: str
 
-    # # Sheet LCA Library
-    # class LCALib(NamedTuple):
-    #     s_ing_id: str
-    #     s_name: str
-    #     s_LCA_phosphorus: str
-    #     s_LCA_renewable_fossil: str
-    #     s_LCA_GHG: str
-    #     s_LCA_acidification: str
-    #     s_LCA_eutrophication: str
-    #     s_LCA_land_competition: str
-
-    # # Sheet LCA Scenario
-    # class LCAScenario(NamedTuple):
-    #     s_ID: str
-    #     s_LCA_phosphorus_weight: str
-    #     s_LCA_renewable_fossil_weight: str
-    #     s_LCA_GHG_weight: str
-    #     s_LCA_acidification_weight: str
-    #     s_LCA_eutrophication_weight: str
-    #     s_LCA_land_competition_weight: str
-    #     s_Methane_Equation: str
-    #     s_N2O_Equation: str
-    #     s_Normalize: str
-
     # Sheet LCA Library
     class LCALib(NamedTuple):
         s_ing_id: str
@@ -144,7 +121,7 @@ class Data:
         s_LCA_land_competition: str
         s_Carbon_cost_bool: str
 
-    # Sheet LCA Scenario
+    # Sheet LCA
     class LCAScenario(NamedTuple):
         s_ID: str
         s_LCA_phosphorus_weight: str
@@ -193,6 +170,8 @@ class Data:
     batchFeedScenarioCandidate = None
 
     batch_map = None
+
+    data_holder: dict = None
 
     def __init__(self,
                  filename,
@@ -345,52 +324,23 @@ class Data:
                                                self.headers_lca_lib.s_ing_id,
                                                unwrap_list(filter_ingredients_ids))
 
-        # checking if config.py is consistent with Excel headers
-        check_list = [(sheet_feed_lib, self.headers_feed_lib),
-                      (sheet_feeds, self.headers_feed_scenario),
-                      (sheet_scenario, self.headers_scenario),
-                      (sheet_batch, self.headers_batch),
-                      (sheet_lca, self.headers_lca_scenario),
-                      (sheet_lca_lib, self.headers_lca_lib)
-                      ]
-
-        try:
-            for sheet in check_list:
-                sh_dict: dict = sheet[0]
-                if sh_dict['headers'] != [x for x in sheet[1]]:
-                    raise IOError(sh_dict['name'])
-        except IOError as e:
-            logging.error("Headers in config.py don't match header in Excel file:{}".format(e.args))
-            # DO NOT DELETE - 20/10/2020
-            # [self.headers_feed_lib,
-            #  self.headers_feed_scenario,
-            #  self.headers_scenario] = [None, None, None]
-            raise IOError(e)
+        self.data_holder = dict(zip([sheet_feed_lib['name'],
+                                     sheet_feeds['name'],
+                                     sheet_scenario['name'],
+                                     sheet_batch['name'],
+                                     sheet_lca['name'],
+                                     sheet_lca_lib['name'],
+                                     sheet_additives_scenario['name']],
+                                    [self.data_feed_lib,
+                                     self.data_feed_scenario,
+                                     self.data_scenario,
+                                     self.data_batch,
+                                     self.data_lca_scenario,
+                                     self.data_lca_lib,
+                                     self.data_additive_scenario]))
 
         # Saving info in the log
         logging.info("\n\nAll data read")
-
-    # def datasets(self):
-    #     """
-    #     Return datasets
-    #     :return list : [data_feed_lib, data_feed_scenario, data_scenario, data_lca_lib, data_lca_scenario]
-    #     """
-    #     return [self.data_feed_lib,
-    #             self.data_feed_scenario,
-    #             self.data_scenario]
-
-    # def headers(self):
-    #     """
-    #     Return datasets' headers
-    #     :return list : [headers_feed_lib,
-    #                     headers_feed_scenario,
-    #                     headers_scenario,
-    #                     headers_lca_lib,
-    #                     headers_lca_scenario]
-    #     """
-    #     return [self.headers_feed_lib,
-    #             self.headers_feed_scenario,
-    #             self.headers_scenario]
 
     @staticmethod
     def get_series_from_batch(batch, col_name, period):
@@ -440,11 +390,6 @@ class Data:
                 return [list(row) for row in list(ds)]
             else:
                 return unwrap_list(ds)
-
-    # def get_dict_data(self, dataframe, header, base_list, base_header):
-    #     keys = list(self.get_column_data(dataframe, base_header))
-    #     vals = list(self.get_column_data(dataframe, header))
-    #     return dict(zip(keys, vals))
 
     @staticmethod
     def map_values(headers, vals):
@@ -505,6 +450,25 @@ class Data:
         for h in header:
             all_dicts.append(self.sorted_column(data_frame, h, base_list, base_header, return_dict))
         return all_dicts
+
+    def search_spreadsheet(self, columns, row=0):
+        map = {}
+        for col in columns:
+            original_name = col
+            if col == 'ID':
+                continue
+            if "@" in col:
+                row, col = col.split("@")
+
+            for name, df in self.data_holder.items():
+                if col in df.columns.to_list():
+                    # to assign value, use .loc: v[0].loc[v[1], v[2]]
+                    map[original_name] = [name, row, col]
+
+        if len(map) != len(columns) - 1:
+            raise LookupError("One or more columns in the sensitivity analysis could not be found in the dataframes")
+
+        return map
 
 
 if __name__ == "__main__":

@@ -155,7 +155,7 @@ After each run, the input used and the csv containing the output are saved in th
 2. Example CSV file 'test.csv':
 
    | row_ids   | DDGS_01      | Animal_price   | ...   | variable_m    |
-       | ----------|:-------------:|:-------------:| :----:|:-------------:|
+   | ----------|:-------------:|:-------------:| :----:|:-------------:|
    | 1         | 0.86          | 5.43          | ...   | 17.4          |
    | 2         | 1.23          | 3.45          | ...   | 13.2          |
    | ...       |...            | ...           | ...   | ...           |

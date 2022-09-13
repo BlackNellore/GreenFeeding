@@ -208,7 +208,7 @@ class Model:
         # From outer scope
         [p_id, p_feed_scenario, p_batch, p_breed, p_sbw, p_feed_time, p_target_weight, p_bcs, p_be, p_l, p_sex, p_a2,
          p_ph, p_selling_price, p_algorithm, p_identifier, p_lb, p_ub, p_tol, p_dmi_eq, p_obj, p_find_reduced_cost,
-         p_ing_level, p_lca_id, p_additive_id] = [None for i in range(25)]
+         p_ing_level, p_lca_id, p_additive_id, p_SA] = [None for i in range(26)]
 
         init_parameters = None
 
@@ -222,7 +222,7 @@ class Model:
                  self.p_target_weight, self.p_bcs, self.p_be, self.p_l, self.p_sex, self.p_a2, self.p_ph,
                  self.p_selling_price, self.p_algorithm, self.p_identifier, self.p_lb, self.p_ub, self.p_tol,
                  self.p_dmi_eq, self.p_obj, self.p_find_reduced_cost, self.p_ing_level, self.p_lca_id,
-                 self.p_additive_id]\
+                 self.p_additive_id, self.p_SA]\
                     = \
                     parameters.values()
             elif isinstance(parameters, list):
@@ -230,7 +230,7 @@ class Model:
                  self.p_target_weight, self.p_bcs, self.p_be, self.p_l, self.p_sex, self.p_a2, self.p_ph,
                  self.p_selling_price, self.p_algorithm, self.p_identifier, self.p_lb, self.p_ub, self.p_tol,
                  self.p_dmi_eq, self.p_obj, self.p_find_reduced_cost, self.p_ing_level, self.p_lca_id,
-                 self.p_additive_id] = \
+                 self.p_additive_id, self.p_SA] = \
                     parameters
 
         def compute_nrc_parameters(self):
@@ -349,14 +349,14 @@ class Model:
 
             if parameters.p_batch > 0:
                 try:
-                    batch_feed_scenario = self.ds.batch_map[parameters.p_id]["data_feed_scenario"][
+                    batch_feed_scenario = self.ds.batch_map[parameters.p_batch]["data_feed_scenario"][
                         parameters.p_feed_scenario]
                 except KeyError:
-                    logging.warning(f"No Feed_scenario batch for scenario {parameters.p_id},"
+                    logging.warning(f"No Feed_scenario batch for scenario {parameters.p_batch},"
                                     f" batch {parameters.p_batch}, feed_scenario{parameters.p_feed_scenario}")
                     batch_feed_scenario = {}
                 try:
-                    batch_scenario = self.ds.batch_map[parameters.p_id]["data_scenario"][parameters.p_id]
+                    batch_scenario = self.ds.batch_map[parameters.p_batch]["data_scenario"][parameters.p_id]
                 except KeyError:
                     logging.warning(f"No Scenario batch for scenario {parameters.p_id},"
                                     f" batch {parameters.p_batch}, scenario{parameters.p_feed_scenario}")
